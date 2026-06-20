@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.mypy_cache/
+.ruff_cache/
+*.pyc
+dist/
+build/
+.DS_Store
+src/redmond_server/game/server/conf/secret_settings.py
+src/redmond_server/game/server/evennia.db3
+src/redmond_server/game/server/*.pid
+src/redmond_server/game/server/*.restart
+src/redmond_server/game/server/logs/*.log
+src/redmond_server/game/server/logs/*.log.*
+src/redmond_server/game/server/.media/
+src/redmond_server/game/server/.static/
+src/redmond_server/game/server/backups/

@@ -1,0 +1,8 @@
+items:
+  - id: example_light_pistol
+    name: Example Light Pistol
+    category: ranged
+    skill: firearms
+    damage_code: "2P"
+    attack_rating: 8
+    notes: "Example-only public sample data."

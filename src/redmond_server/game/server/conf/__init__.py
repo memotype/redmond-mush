@@ -1,0 +1,1 @@
+"""Redmond Evennia server configuration."""
