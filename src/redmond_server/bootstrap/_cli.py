@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,12 @@ from ._world import run_initial_setup
 def print_json(data: dict[str, Any]) -> None:
     """Serialize structured state for shell scripts and tests."""
     print(json.dumps(data, indent=2, sort_keys=True))
+
+
+def collect_quietly(callback, *args):
+    """Run a bootstrap collector while suppressing incidental stdout noise."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        return callback(*args)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -108,6 +116,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("initial-world-ready", parents=[common_parser])
     subparsers.add_parser("has-superuser", parents=[common_parser])
     subparsers.add_parser("seed", parents=[common_parser])
+    subparsers.add_parser("runtime-state", parents=[common_parser])
     ooc_room_parser = subparsers.add_parser(
         "set-ooc-room-name",
         parents=[common_parser],
@@ -240,6 +249,12 @@ def main() -> int:
         print_json(ensure_seeded_world(args.game_dir))
         return 0
 
+    if args.command == "runtime-state":
+        from ._runtime import runtime_state
+
+        print_json(runtime_state(args.game_dir))
+        return 0
+
     if args.command == "set-ooc-room-name":
         print_json(
             set_ooc_room_name(
@@ -258,7 +273,7 @@ def main() -> int:
         return 0
 
     if args.command == "doctor":
-        print_json(diagnostic_state(args.game_dir))
+        print_json(collect_quietly(diagnostic_state, args.game_dir))
         return 0
 
     if args.command == "migrate":

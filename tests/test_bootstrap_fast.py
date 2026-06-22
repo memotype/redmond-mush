@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import os
 import shutil
@@ -10,7 +11,13 @@ import unittest
 
 from redmond_server import bootstrap
 
-from tests.bootstrap_test_utils import create_game_dir
+from tests.bootstrap_test_utils import (
+    cleanup_process,
+    create_game_dir,
+    load_runtime_state,
+    PYTHON_BIN,
+    PYTHONPATH_DIR,
+)
 
 
 class BootstrapFastTest(unittest.TestCase):
@@ -40,6 +47,51 @@ class BootstrapFastTest(unittest.TestCase):
         self.assertTrue(server_pid["exists"])
         self.assertFalse(server_pid["process_running"])
 
+    def test_runtime_state_command_reports_missing_runtime(self) -> None:
+        game_dir = create_game_dir()
+
+        runtime = load_runtime_state(game_dir)
+
+        self.assertEqual(runtime["running_process_count"], 0)
+        self.assertEqual(runtime["stale_pidfile_count"], 0)
+        self.assertFalse(runtime["runtime_marker_present"])
+        pidfiles = runtime["pidfiles"]
+        assert isinstance(pidfiles, dict)
+        server_pid = pidfiles["server.pid"]
+        assert isinstance(server_pid, dict)
+        self.assertFalse(server_pid["exists"])
+
+    def test_runtime_state_command_reports_running_pidfile(self) -> None:
+        game_dir = create_game_dir()
+        proc = subprocess.Popen(["sleep", "300"], text=True)
+        self.addCleanup(cleanup_process, proc)
+        pidfile = game_dir / "server" / "server.pid"
+        pidfile.write_text(f"{proc.pid}\n", encoding="ascii")
+
+        runtime = load_runtime_state(game_dir)
+
+        pidfiles = runtime["pidfiles"]
+        assert isinstance(pidfiles, dict)
+        server_pid = pidfiles["server.pid"]
+        assert isinstance(server_pid, dict)
+        self.assertTrue(server_pid["exists"])
+        self.assertTrue(server_pid["process_running"])
+        self.assertEqual(server_pid["pid"], proc.pid)
+        self.assertEqual(runtime["running_process_count"], 1)
+        self.assertTrue(runtime["runtime_marker_present"])
+
+    def test_runtime_state_command_reports_flag_presence(self) -> None:
+        game_dir = create_game_dir()
+        flag_path = game_dir / "server" / "server.restart"
+        flag_path.write_text("", encoding="ascii")
+
+        runtime = load_runtime_state(game_dir)
+
+        flags = runtime["restart_or_stop_flags"]
+        assert isinstance(flags, dict)
+        self.assertTrue(flags["server.restart"])
+        self.assertTrue(runtime["runtime_marker_present"])
+
     def test_doctor_reports_missing_database_without_crashing(self) -> None:
         game_dir = create_game_dir()
         bootstrap.ensure_secret_settings(game_dir)
@@ -49,6 +101,27 @@ class BootstrapFastTest(unittest.TestCase):
         self.assertFalse(doctor["db_exists"])
         self.assertTrue(doctor["secret_settings_exists"])
         self.assertIn("database_error", doctor)
+
+    def test_status_local_reports_doctor_json_without_evennia_cli(self) -> None:
+        game_dir = create_game_dir()
+        bootstrap.ensure_secret_settings(game_dir)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = PYTHONPATH_DIR
+        env["REDMOND_GAME_DIR"] = str(game_dir)
+
+        result = subprocess.run(
+            ["./scripts/status_local.sh"],
+            cwd="/home/isaac/dev/redmond/product",
+            env=env,
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertFalse(payload["db_exists"])
+        self.assertTrue(payload["secret_settings_exists"])
+        self.assertIn("database_error", payload)
 
     def test_restore_rejects_unexpected_backup_member(self) -> None:
         game_dir = create_game_dir()
@@ -79,6 +152,7 @@ class BootstrapFastTest(unittest.TestCase):
 
         env = os.environ.copy()
         env["PATH"] = f"{fake_bin}:{env['PATH']}"
+        env["PYTHONPATH"] = PYTHONPATH_DIR
         env["REDMOND_FAKE_EVENNIA_LOG"] = str(log_path)
         env["REDMOND_GAME_DIR"] = str(game_dir)
 
@@ -101,3 +175,44 @@ class BootstrapFastTest(unittest.TestCase):
         self.assertEqual(log_path.read_text(encoding="ascii").strip(), "reload")
 
         shutil.rmtree(fake_bin)
+
+    def test_common_shell_runtime_inspection_uses_bootstrap_command(
+        self,
+    ) -> None:
+        game_dir = create_game_dir()
+        fake_bin = Path(tempfile.mkdtemp(prefix="redmond-fake-bin-"))
+        log_path = fake_bin / "python.log"
+        python_path = fake_bin / "python"
+        python_path.write_text(
+            "#!/usr/bin/env bash\n"
+            "printf '%s\\n' \"$*\" >> \"$REDMOND_FAKE_PYTHON_LOG\"\n"
+            f'exec "{PYTHON_BIN}" "$@"\n',
+            encoding="ascii",
+        )
+        python_path.chmod(0o755)
+
+        env = os.environ.copy()
+        env["PATH"] = f"{fake_bin}:{env['PATH']}"
+        env["PYTHONPATH"] = PYTHONPATH_DIR
+        env["REDMOND_FAKE_PYTHON_LOG"] = str(log_path)
+        env["REDMOND_GAME_DIR"] = str(game_dir)
+
+        subprocess.run(
+            [
+                "bash",
+                "-lc",
+                "source product/scripts/common.sh && runtime_markers_present",
+            ],
+            cwd="/home/isaac/dev/redmond",
+            env=env,
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        log_lines = log_path.read_text(encoding="ascii").splitlines()
+        self.assertIn(
+            "-m redmond_server.bootstrap runtime-state --game-dir "
+            f"{game_dir}",
+            log_lines,
+        )

@@ -78,6 +78,22 @@ def load_doctor(game_dir: Path) -> dict[str, object]:
     return json.loads(result.stdout)
 
 
+def load_runtime_state(game_dir: Path) -> dict[str, object]:
+    result = run_command(
+        [
+            PYTHON_BIN,
+            "-m",
+            "redmond_server.bootstrap",
+            "runtime-state",
+            "--game-dir",
+            str(game_dir),
+        ],
+        cwd=PRODUCT_ROOT,
+        env={"PYTHONPATH": PYTHONPATH_DIR},
+    )
+    return json.loads(result.stdout)
+
+
 def load_accounts(game_dir: Path) -> list[dict[str, object]]:
     result = run_command(
         [

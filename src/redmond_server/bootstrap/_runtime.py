@@ -72,11 +72,15 @@ def runtime_state(game_dir: Path) -> dict[str, Any]:
         }
 
     flags = {name: (server_dir / name).exists() for name in flag_names}
+    runtime_marker_present = bool(
+        any(flags.values()) or any(info["exists"] for info in pidfiles.values())
+    )
     return {
         "game_dir": str(game_dir),
         "pidfiles": pidfiles,
         "restart_or_stop_flags": flags,
         "running_process_count": running_processes,
+        "runtime_marker_present": runtime_marker_present,
         "stale_pidfile_count": stale_pidfiles,
     }
 

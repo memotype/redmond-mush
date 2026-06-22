@@ -20,7 +20,8 @@ Current Milestone 1 entrypoints:
 - `restore_local.sh <archive>`
   - restore a local backup archive and reapply the Redmond seed step
 - `status_local.sh`
-  - print JSON diagnostics for local database, pidfiles, and runtime flags
+  - print bootstrap JSON diagnostics for local database, pidfiles, and
+    runtime flags
 - `accounts_list.sh`
   - print local accounts with ids, usernames, emails, and admin role state
 - `account_create.sh <username> <password> [email] [--superuser]`
@@ -64,6 +65,8 @@ Current recovery classification:
   - `account_set_admin.sh`
   - `status_local.sh`
   - `backup_local.sh`
+- `status_local.sh` is intended to stay useful whenever bootstrap diagnostics
+  can run, even when the live Evennia runtime is stopped or unhealthy.
 - `restore_local.sh` also satisfies the contract for archive recovery.
   - reseed is now best-effort follow-up work and may be deferred with a
     warning when runtime-only world access is unavailable
@@ -79,8 +82,8 @@ out of the OSS product tree.
 
 For contributor automation and test helpers, prefer the bootstrap CLI surface
 behind these scripts, such as `python -m redmond_server.bootstrap doctor`,
-`account-list`, `account-verify-password`, and `set-ooc-room-name`, instead of
-ad hoc inline Django or Evennia snippets.
+`runtime-state`, `account-list`, `account-verify-password`, and
+`set-ooc-room-name`, instead of ad hoc inline Django or Evennia snippets.
 
 The bootstrap tests also use one narrow internal env seam,
 `REDMOND_TEST_FAIL_STAFF_SYNC=1`, to force deferred staff-channel sync while

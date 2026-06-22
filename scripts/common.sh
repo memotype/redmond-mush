@@ -19,9 +19,29 @@ ensure_evennia() {
   fi
 }
 
+bootstrap_python_cmd() {
+  if command -v python >/dev/null 2>&1; then
+    printf '%s\n' python
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' python3
+    return 0
+  fi
+
+  echo "python or python3 command not found. Activate the project virtualenv first." >&2
+  exit 1
+}
+
 run_bootstrap() {
+  local python_cmd
+  python_cmd="$(bootstrap_python_cmd)"
   PYTHONPATH="$pythonpath_dir${PYTHONPATH:+:$PYTHONPATH}" \
-    python -m redmond_server.bootstrap "$@" --game-dir "$game_dir"
+    "$python_cmd" -m redmond_server.bootstrap "$@" --game-dir "$game_dir"
+}
+
+runtime_state_json() {
+  run_bootstrap runtime-state
 }
 
 runtime_pidfiles() {
@@ -42,83 +62,96 @@ ensure_runtime_layout() {
   mkdir -p "$server_dir/logs" "$server_dir/backups"
 }
 
+runtime_json_lines() {
+  local mode="$1"
+  local payload
+  local python_cmd
+  payload="$(runtime_state_json)"
+  python_cmd="$(bootstrap_python_cmd)"
+  "$python_cmd" -c '
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import sys
+
+
+def emit_present_flag_paths(data: dict[str, object]) -> int:
+    game_dir = Path(str(data["game_dir"]))
+    flags = data["restart_or_stop_flags"]
+    assert isinstance(flags, dict)
+    for name, exists in flags.items():
+        if exists:
+            print(game_dir / "server" / name)
+    return 0
+
+
+def emit_stale_pidfile_paths(data: dict[str, object]) -> int:
+    game_dir = Path(str(data["game_dir"]))
+    pidfiles = data["pidfiles"]
+    assert isinstance(pidfiles, dict)
+    for name, info in pidfiles.items():
+        assert isinstance(info, dict)
+        if info["exists"] and not info["process_running"]:
+            print(game_dir / "server" / name)
+    return 0
+
+
+def emit_pidfile_pids(data: dict[str, object]) -> int:
+    pidfiles = data["pidfiles"]
+    assert isinstance(pidfiles, dict)
+    for info in pidfiles.values():
+        assert isinstance(info, dict)
+        pid = info["pid"]
+        if pid is not None:
+            print(pid)
+    return 0
+
+
+def main() -> int:
+    mode = sys.argv[1]
+    data = json.load(sys.stdin)
+
+    if mode == "runtime_markers_present":
+        return 0 if data["runtime_marker_present"] else 1
+    if mode == "runtime_processes_present":
+        return 0 if data["running_process_count"] > 0 else 1
+    if mode == "present_flag_paths":
+        return emit_present_flag_paths(data)
+    if mode == "stale_pidfile_paths":
+        return emit_stale_pidfile_paths(data)
+    if mode == "pidfile_pids":
+        return emit_pidfile_pids(data)
+
+    raise SystemExit(f"Unsupported runtime_json_lines mode: {mode}")
+
+
+raise SystemExit(main())
+' "$mode" <<<"$payload"
+}
+
 runtime_markers_present() {
-  local path
-  while IFS= read -r path; do
-    if [ -e "$path" ]; then
-      return 0
-    fi
-  done < <(runtime_flag_files)
-
-  while IFS= read -r path; do
-    if [ -e "$path" ]; then
-      return 0
-    fi
-  done < <(runtime_pidfiles)
-
-  return 1
+  runtime_json_lines runtime_markers_present >/dev/null
 }
 
 remove_stale_runtime_files() {
   local path
   while IFS= read -r path; do
-    [ -e "$path" ] && rm -f "$path"
-  done < <(runtime_flag_files)
+    [ -n "$path" ] && rm -f "$path"
+  done < <(runtime_json_lines present_flag_paths)
 
   while IFS= read -r path; do
-    if [ ! -e "$path" ]; then
-      continue
-    fi
-    if ! pid_is_running_from_pidfile "$path"; then
-      rm -f "$path"
-    fi
-  done < <(runtime_pidfiles)
-}
-
-read_pidfile() {
-  local pidfile="$1"
-  if [ ! -f "$pidfile" ]; then
-    return 1
-  fi
-
-  local pid
-  pid="$(tr -d '[:space:]' <"$pidfile")"
-  if [[ ! "$pid" =~ ^[0-9]+$ ]]; then
-    return 1
-  fi
-
-  printf '%s\n' "$pid"
-}
-
-pid_is_running_from_pidfile() {
-  local pidfile="$1"
-  local pid
-  if ! pid="$(read_pidfile "$pidfile")"; then
-    return 1
-  fi
-  if ! kill -0 "$pid" >/dev/null 2>&1; then
-    return 1
-  fi
-
-  local stat
-  stat="$(ps -o stat= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
-  if [[ "$stat" == Z* ]]; then
-    return 1
-  fi
-
-  return 0
+    [ -n "$path" ] && rm -f "$path"
+  done < <(runtime_json_lines stale_pidfile_paths)
 }
 
 kill_pidfile_processes() {
   local signal="$1"
-  local path
-  while IFS= read -r path; do
-    local pid
-    if ! pid="$(read_pidfile "$path")"; then
-      continue
-    fi
+  local pid
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
     kill "-$signal" "$pid" >/dev/null 2>&1 || true
-  done < <(runtime_pidfiles)
+  done < <(runtime_json_lines pidfile_pids)
 }
 
 wait_for_runtime_shutdown() {
@@ -126,16 +159,7 @@ wait_for_runtime_shutdown() {
   deadline=$((SECONDS + shutdown_grace_seconds))
 
   while [ "$SECONDS" -lt "$deadline" ]; do
-    local path
-    local any_running=0
-    while IFS= read -r path; do
-      if pid_is_running_from_pidfile "$path"; then
-        any_running=1
-        break
-      fi
-    done < <(runtime_pidfiles)
-
-    if [ "$any_running" -eq 0 ]; then
+    if ! runtime_processes_present; then
       return 0
     fi
     sleep 1
@@ -145,14 +169,7 @@ wait_for_runtime_shutdown() {
 }
 
 runtime_processes_present() {
-  local path
-  while IFS= read -r path; do
-    if pid_is_running_from_pidfile "$path"; then
-      return 0
-    fi
-  done < <(runtime_pidfiles)
-
-  return 1
+  runtime_json_lines runtime_processes_present >/dev/null
 }
 
 reload_evennia_runtime_if_running() {
