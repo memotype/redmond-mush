@@ -40,6 +40,9 @@ Evennia-based server foundation:
 Gameplay systems such as chargen, dice, inventory, and scene tools are still
 future work.
 
+When editing player-facing MOTDs, room descriptions, help text, or other
+formatted output, see `docs/text-formatting.md`.
+
 ## Validation
 
 Create a local virtual environment and run the baseline checks:

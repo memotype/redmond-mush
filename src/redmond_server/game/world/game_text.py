@@ -12,6 +12,7 @@ This server is unofficial and noncommercial.
 Rules support is terse and original; it is not a replacement for the
 official Shadowrun books.
 
+Use |whelp|n for command help.
 Use |whelp legal|n for the project legal notice.
 """.strip()
 

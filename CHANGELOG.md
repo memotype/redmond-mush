@@ -11,15 +11,17 @@ Rules:
 
 - None.
 
-## v0.0.8 - 2026-06-25
+## v0.0.9 - 2026-06-25
 
-- Add a first-pass MUSH-style prompt system for the Evennia game layer with
-  token-based prompt rendering, real prompt emission, and account-scoped
-  prompt customization.
-- Add `@prompt`, `@prompt/test`, and `@prompt/reset`, with `%n`, `%l`, `%r`,
-  `%t`, and `%%` prompt-token support and trailing-space preservation.
-- Add focused Evennia-backed prompt tests for rendering, context selection,
-  prompt-command behavior, and prompt emission hooks.
+- Move the stylized Redmond intro banner system to the pre-login connection
+  screen and load title cards from a random file-backed pool under the
+  Evennia game-dir config tree.
+- Add a product-facing text-formatting guide plus README and contributing
+  pointers for native Evennia markup usage.
+- Import the 12 ASCII-safe Redmond title cards, preserve their telnet
+  rendering with correct pipe escaping and backslash handling, and add
+  focused connection-screen tests plus packaging support for the new title
+  card assets.
 
 ## v0.0.6 - 2026-06-22
 

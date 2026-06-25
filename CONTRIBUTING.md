@@ -8,6 +8,9 @@ Thanks for your interest in contributing to `redmond-mush`.
 - Keep changes focused and easy to review.
 - Include tests when behavior changes.
 
+For player-facing output, prefer native Evennia text markup and follow
+`docs/text-formatting.md`.
+
 ## Validation
 
 Before opening a pull request, run:
