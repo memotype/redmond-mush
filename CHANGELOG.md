@@ -11,6 +11,16 @@ Rules:
 
 - None.
 
+## v0.0.8 - 2026-06-25
+
+- Add a first-pass MUSH-style prompt system for the Evennia game layer with
+  token-based prompt rendering, real prompt emission, and account-scoped
+  prompt customization.
+- Add `@prompt`, `@prompt/test`, and `@prompt/reset`, with `%n`, `%l`, `%r`,
+  `%t`, and `%%` prompt-token support and trailing-space preservation.
+- Add focused Evennia-backed prompt tests for rendering, context selection,
+  prompt-command behavior, and prompt emission hooks.
+
 ## v0.0.6 - 2026-06-22
 
 - Preserve executable bits on the exported maintenance shell scripts so local

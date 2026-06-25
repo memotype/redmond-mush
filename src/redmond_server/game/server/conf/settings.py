@@ -8,6 +8,7 @@ Only override the defaults needed for the Milestone 1 local bootstrap.
 from evennia.settings_default import *  # noqa: F403
 
 
+COMMAND_DEFAULT_CLASS = "commands.command.MuxCommand"
 SERVERNAME = "Redmond"
 
 

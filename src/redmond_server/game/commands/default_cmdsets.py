@@ -3,6 +3,8 @@
 
 from evennia import default_cmds
 
+from commands.prompt import CmdPrompt
+
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
     """Character command set for in-world characters."""
@@ -12,6 +14,7 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
     def at_cmdset_creation(self) -> None:
         """Populate the default character command set."""
         super().at_cmdset_creation()
+        self.add(CmdPrompt())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):
@@ -22,6 +25,7 @@ class AccountCmdSet(default_cmds.AccountCmdSet):
     def at_cmdset_creation(self) -> None:
         """Populate the default account command set."""
         super().at_cmdset_creation()
+        self.add(CmdPrompt())
 
 
 class UnloggedinCmdSet(default_cmds.UnloggedinCmdSet):

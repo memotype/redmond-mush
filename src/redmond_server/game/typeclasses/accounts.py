@@ -4,6 +4,7 @@
 from evennia.accounts.accounts import DefaultAccount, DefaultGuest
 
 from world.game_text import LOGIN_MOTD
+from world.prompts import send_prompt, set_prompt_suppressed
 
 
 class Account(DefaultAccount):
@@ -11,8 +12,11 @@ class Account(DefaultAccount):
 
     def at_post_login(self, session=None, **kwargs) -> None:
         """Show the Redmond MOTD after a successful login."""
+        set_prompt_suppressed(session, True)
         super().at_post_login(session=session, **kwargs)
-        self.msg(LOGIN_MOTD)
+        self.msg(LOGIN_MOTD, session=session)
+        set_prompt_suppressed(session, False)
+        send_prompt(self, session=session)
 
 
 class Guest(DefaultGuest):
