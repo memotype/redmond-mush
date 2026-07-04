@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ._env import configure_django
+from ._env import configure_django, load_game_conf_module
 from ._runtime import runtime_state
 from ._types import BootstrapState
 
@@ -17,8 +17,23 @@ def _load_game_text() -> Any:
     return game_text
 
 
+def _database_metadata(game_dir: Path) -> dict[str, Any]:
+    """Load non-secret database configuration metadata for one game dir."""
+    database_module = load_game_conf_module(game_dir, "_database")
+    return dict(database_module.describe_database_config(game_dir=game_dir))
+
+
+def _database_file_exists(metadata: dict[str, Any]) -> bool | None:
+    """Return file-based existence only for SQLite-backed configurations."""
+    sqlite_path = metadata.get("sqlite_path")
+    if sqlite_path is None:
+        return None
+    return Path(str(sqlite_path)).exists()
+
+
 def current_state(game_dir: Path) -> BootstrapState:
     """Read current account and object counts from the migrated database."""
+    database = _database_metadata(game_dir)
     configure_django(game_dir, load_evennia=False)
 
     from evennia.accounts.models import (  # type: ignore[import-untyped]
@@ -28,13 +43,12 @@ def current_state(game_dir: Path) -> BootstrapState:
         ObjectDB,
     )
 
-    db_path = game_dir / "server" / "evennia.db3"
     secret_settings_path = game_dir / "server" / "conf" / "secret_settings.py"
     return BootstrapState(
         account_count=AccountDB.objects.count(),
         object_count=ObjectDB.objects.count(),
         superuser_count=AccountDB.objects.filter(is_superuser=True).count(),
-        db_exists=db_path.exists(),
+        db_exists=_database_file_exists(database),
         secret_settings_exists=secret_settings_path.exists(),
     )
 
@@ -205,6 +219,7 @@ def run_initial_setup(game_dir: Path) -> dict[str, Any]:
 
 def dump_state(game_dir: Path) -> dict[str, Any]:
     """Collect current bootstrap-visible state for tests and debugging."""
+    database = _database_metadata(game_dir)
     configure_django(game_dir, load_evennia=True)
 
     import evennia  # type: ignore[import-untyped]
@@ -227,6 +242,7 @@ def dump_state(game_dir: Path) -> dict[str, Any]:
         "channel_keys": sorted(
             channel.key for channel in ChannelDB.objects.all()
         ),
+        "database": database,
         "db_exists": state.db_exists,
         "legal_help_count": legal_help_count,
         "object_count": state.object_count,
@@ -240,8 +256,10 @@ def dump_state(game_dir: Path) -> dict[str, Any]:
 
 def diagnostic_state(game_dir: Path) -> dict[str, Any]:
     """Collect local diagnostics without assuming a healthy database state."""
+    database = _database_metadata(game_dir)
     diagnostics = {
-        "db_exists": (game_dir / "server" / "evennia.db3").exists(),
+        "database": database,
+        "db_exists": _database_file_exists(database),
         "runtime": runtime_state(game_dir),
         "secret_settings_exists": (
             game_dir / "server" / "conf" / "secret_settings.py"

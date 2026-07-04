@@ -12,7 +12,7 @@ class BootstrapState:
     account_count: int
     object_count: int
     superuser_count: int
-    db_exists: bool
+    db_exists: bool | None
     secret_settings_exists: bool
 
     @property

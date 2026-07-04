@@ -33,6 +33,8 @@ Evennia-based server foundation:
 
 - committed game-dir style package subtree under `src/redmond_server/game`
 - SQLite-backed local development bootstrap
+- optional `REDMOND_DATABASE_URL` support for PostgreSQL-backed runtime
+  configuration
 - an idempotent setup seed
 - baseline OOC room and channels
 - connection-screen legal notice plus `help legal`
@@ -73,6 +75,27 @@ For ordinary `product/` changes in this private control repo, also run
 `node scripts/check-oss-export.cjs` so the downstream OSS export contract is
 checked alongside the product test suite.
 
+## Product changelog contract
+
+`product/CHANGELOG.md` is the public-product changelog for this Layer 2 tree.
+
+When a commit materially changes exported product behavior, public product
+docs, packaging metadata, exported tests, maintenance scripts, or exported
+assets under `product/`, update `product/CHANGELOG.md` in that same
+changeset when the change is intended to be release-visible.
+
+Before creating a local commit or tag that acts as a release boundary for
+`product/` changes:
+
+- inspect `product/CHANGELOG.md`
+- ensure the matching entry is staged into that release changeset
+- ensure no leftover release-note edits remain dirty in the worktree after
+  the release commit or tag is created
+
+This product changelog is distinct from the root repo `CHANGELOG.md`. When a
+release affects both surfaces, update both and verify the intended entries
+are committed before tagging.
+
 ## Local bootstrap
 
 From the repository root:
@@ -109,6 +132,16 @@ Helpful local operator commands:
 game-dir-owned processes before rebuilding the SQLite state. If local bootstrap
 or migrate fails, run `./scripts/status_local.sh` to inspect the current
 database and runtime state before retrying.
+
+Optional PostgreSQL configuration:
+
+- local bootstrap and tests still default to SQLite when
+  `REDMOND_DATABASE_URL` is unset
+- set `REDMOND_DATABASE_URL` to a supported `postgres://` or
+  `postgresql://` URL to select PostgreSQL at settings load time
+- `./scripts/status_local.sh` now reports the active non-secret database
+  configuration metadata for either path
+- backup, restore, and reset remain SQLite-oriented in the current milestone
 
 For local account recovery and staff administration, use the account scripts
 under `scripts/` instead of rebuilding the whole database when practical.

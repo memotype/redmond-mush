@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 from pathlib import Path
 import secrets
 import sys
+from types import ModuleType
 
 from ._runtime import reserve_local_ports
 
@@ -44,6 +46,21 @@ def ensure_secret_settings(game_dir: Path) -> Path:
     target_text += f"AMP_PORT = {ports[6]}\n"
     target_path.write_text(target_text, encoding="ascii")
     return target_path
+
+
+def load_game_conf_module(game_dir: Path, module_name: str) -> ModuleType:
+    """Load one game-dir config module without importing the whole package."""
+    module_path = game_dir / "server" / "conf" / f"{module_name}.py"
+    spec = importlib.util.spec_from_file_location(
+        f"redmond_game_conf_{module_name}_{abs(hash(module_path))}",
+        module_path,
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load config module: {module_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def configure_django(game_dir: Path, *, load_evennia: bool) -> None:

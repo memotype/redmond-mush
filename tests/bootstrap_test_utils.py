@@ -62,7 +62,11 @@ def load_state(game_dir: Path) -> dict[str, object]:
     return json.loads(result.stdout)
 
 
-def load_doctor(game_dir: Path) -> dict[str, object]:
+def load_doctor(
+    game_dir: Path,
+    *,
+    env: dict[str, str] | None = None,
+) -> dict[str, object]:
     result = run_command(
         [
             PYTHON_BIN,
@@ -73,7 +77,7 @@ def load_doctor(game_dir: Path) -> dict[str, object]:
             str(game_dir),
         ],
         cwd=PRODUCT_ROOT,
-        env={"PYTHONPATH": PYTHONPATH_DIR},
+        env={"PYTHONPATH": PYTHONPATH_DIR, **(env or {})},
     )
     return json.loads(result.stdout)
 

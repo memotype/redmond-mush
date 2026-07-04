@@ -9,19 +9,25 @@ Rules:
 
 ## Unreleased
 
-- None.
+- Add optional `REDMOND_DATABASE_URL`-driven PostgreSQL settings selection
+  while keeping explicit SQLite defaults for local bootstrap and tests.
+- Extend bootstrap diagnostics to report sanitized active database metadata
+  and add Phase 2 parser and doctor coverage without requiring a live
+  PostgreSQL container.
+- Document the PostgreSQL configuration path and the current SQLite-first
+  local workflow in the exported product README.
 
 ## v0.0.9 - 2026-06-25
 
-- Move the stylized Redmond intro banner system to the pre-login connection
-  screen and load title cards from a random file-backed pool under the
-  Evennia game-dir config tree.
+- Move the stylized Redmond banner system to the pre-login connection screen
+  and load title cards from a random file-backed pool under the game-dir
+  config tree.
 - Add a product-facing text-formatting guide plus README and contributing
   pointers for native Evennia markup usage.
 - Import the 12 ASCII-safe Redmond title cards, preserve their telnet
-  rendering with correct pipe escaping and backslash handling, and add
-  focused connection-screen tests plus packaging support for the new title
-  card assets.
+  rendering with correct pipe escaping and backslash handling, and add focused
+  connection-screen tests plus Layer 2 export metadata for the new public
+  docs and assets.
 
 ## v0.0.6 - 2026-06-22
 

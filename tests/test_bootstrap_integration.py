@@ -270,6 +270,32 @@ class BootstrapIntegrationTest(unittest.TestCase):
         assert isinstance(runtime, dict)
         self.assertEqual(runtime["running_process_count"], 0)
 
+    def test_doctor_command_reports_postgres_configuration(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+
+        doctor = load_doctor(
+            game_dir,
+            env={
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:1/redmond"
+                ),
+            },
+        )
+
+        self.assertIsNone(doctor["db_exists"])
+        database = doctor["database"]
+        assert isinstance(database, dict)
+        self.assertEqual(database["engine"], "postgresql")
+        self.assertEqual(database["source"], "env_url")
+        self.assertEqual(database["host"], "127.0.0.1")
+        self.assertEqual(database["port"], 1)
+        self.assertEqual(database["database_name"], "redmond")
+        self.assertIsNone(database["sqlite_path"])
+        self.assertIn("database_error", doctor)
+        self.assertNotIn("secret", doctor["database_error"])
+
     def test_backup_and_restore_round_trip(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
