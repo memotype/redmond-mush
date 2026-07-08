@@ -4,13 +4,232 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 product_root="$(cd "$script_dir/.." && pwd)"
+default_wrapper_config="$product_root/config/redmond.env"
 default_game_dir="$product_root/src/redmond_server/game"
-game_dir="${REDMOND_GAME_DIR:-$default_game_dir}"
 pythonpath_dir="$product_root/src"
-server_dir="$game_dir/server"
-stop_timeout_seconds="${REDMOND_STOP_TIMEOUT_SECONDS:-20}"
-shutdown_grace_seconds="${REDMOND_SHUTDOWN_GRACE_SECONDS:-5}"
-reload_timeout_seconds="${REDMOND_RELOAD_TIMEOUT_SECONDS:-30}"
+game_dir=""
+server_dir=""
+stop_timeout_seconds=""
+shutdown_grace_seconds=""
+reload_timeout_seconds=""
+redmond_show_help=0
+redmond_wrapper_config_explicit=0
+redmond_wrapper_config_loaded=0
+redmond_wrapper_config_path=""
+redmond_wrapper_args=()
+redmond_wrapper_common_args=()
+
+redmond_fail() {
+  echo "$*" >&2
+  exit 1
+}
+
+redmond_trim_whitespace() {
+  local text="$1"
+  text="${text#"${text%%[![:space:]]*}"}"
+  text="${text%"${text##*[![:space:]]}"}"
+  printf '%s' "$text"
+}
+
+redmond_strip_optional_quotes() {
+  local value="$1"
+  if [ "${#value}" -ge 2 ]; then
+    case "$value" in
+      \"*\")
+        value="${value:1:${#value}-2}"
+        ;;
+      \'*\')
+        value="${value:1:${#value}-2}"
+        ;;
+    esac
+  fi
+  printf '%s' "$value"
+}
+
+redmond_print_common_options() {
+  cat <<EOF
+Common options:
+  -c, --config PATH  Load wrapper config from PATH. When omitted, the wrapper
+                     loads $default_wrapper_config if it exists.
+  --help             Show this help message.
+EOF
+}
+
+redmond_usage_error() {
+  local usage="$1"
+  {
+    echo "$usage"
+    echo
+    redmond_print_common_options
+  } >&2
+  exit 1
+}
+
+redmond_config_usage_error() {
+  local option_name="$1"
+  redmond_fail "$option_name requires a config path."
+}
+
+redmond_resolve_path_from_pwd() {
+  local caller_pwd="$1"
+  local candidate="$2"
+  if [[ "$candidate" = /* ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  printf '%s\n' "$caller_pwd/$candidate"
+}
+
+redmond_load_config_file() {
+  local config_path="$1"
+  local config_dir
+  local raw_line
+  local line_number=0
+
+  if [ ! -e "$config_path" ]; then
+    redmond_fail "Config file not found: $config_path"
+  fi
+  if [ ! -r "$config_path" ]; then
+    redmond_fail "Config file is not readable: $config_path"
+  fi
+  config_dir="${config_path%/*}"
+
+  while IFS= read -r raw_line || [ -n "$raw_line" ]; do
+    local trimmed
+    local key
+    local value
+    line_number=$((line_number + 1))
+    trimmed="$(redmond_trim_whitespace "$raw_line")"
+    if [ -z "$trimmed" ]; then
+      continue
+    fi
+    if [[ "$trimmed" = \#* ]]; then
+      continue
+    fi
+    if [[ ! "$trimmed" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      redmond_fail \
+        "Invalid config line $line_number in $config_path. " \
+        "Use KEY=value assignments only."
+    fi
+
+    key="${trimmed%%=*}"
+    value="${trimmed#*=}"
+    value="$(redmond_strip_optional_quotes "$value")"
+    printf -v "$key" '%s' "$value"
+    export "$key"
+  done <"$config_path"
+
+  redmond_resolve_config_path_var REDMOND_GAME_DIR "$config_dir"
+  redmond_resolve_config_path_var REDMOND_BACKUP_DIR "$config_dir"
+  redmond_resolve_config_command_var \
+    REDMOND_PGBACKREST_COMMAND \
+    "$config_dir"
+  redmond_wrapper_config_loaded=1
+}
+
+redmond_resolve_config_path_var() {
+  local variable_name="$1"
+  local base_dir="$2"
+  local variable_value="${!variable_name:-}"
+  if [ -z "$variable_value" ]; then
+    return 0
+  fi
+  if [[ "$variable_value" = /* ]]; then
+    return 0
+  fi
+  printf -v "$variable_name" '%s' "$base_dir/$variable_value"
+  export "$variable_name"
+}
+
+redmond_resolve_config_command_var() {
+  local variable_name="$1"
+  local base_dir="$2"
+  local variable_value="${!variable_name:-}"
+  if [ -z "$variable_value" ]; then
+    return 0
+  fi
+  if [[ "$variable_value" = /* ]]; then
+    return 0
+  fi
+  if [[ "$variable_value" != */* ]]; then
+    return 0
+  fi
+  printf -v "$variable_name" '%s' "$base_dir/$variable_value"
+  export "$variable_name"
+}
+
+redmond_init() {
+  local caller_pwd
+  caller_pwd="$(pwd -P)"
+  redmond_show_help=0
+  redmond_wrapper_config_explicit=0
+  redmond_wrapper_config_loaded=0
+  redmond_wrapper_config_path=""
+  redmond_wrapper_args=()
+  redmond_wrapper_common_args=()
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -c)
+        [ "$#" -ge 2 ] || redmond_config_usage_error "-c"
+        redmond_wrapper_config_path="$2"
+        redmond_wrapper_config_explicit=1
+        shift 2
+        ;;
+      --config)
+        [ "$#" -ge 2 ] || redmond_config_usage_error "--config"
+        redmond_wrapper_config_path="$2"
+        redmond_wrapper_config_explicit=1
+        shift 2
+        ;;
+      --help)
+        redmond_show_help=1
+        shift
+        ;;
+      --)
+        shift
+        while [ "$#" -gt 0 ]; do
+          redmond_wrapper_args+=("$1")
+          shift
+        done
+        break
+        ;;
+      *)
+        redmond_wrapper_args+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  if [ "$redmond_show_help" -eq 1 ]; then
+    return 0
+  fi
+
+  if [ -n "$redmond_wrapper_config_path" ]; then
+    redmond_wrapper_config_path="$(
+      redmond_resolve_path_from_pwd \
+        "$caller_pwd" \
+        "$redmond_wrapper_config_path"
+    )"
+    redmond_wrapper_common_args=(
+      "--config"
+      "$redmond_wrapper_config_path"
+    )
+    redmond_load_config_file "$redmond_wrapper_config_path"
+  elif \
+    [ -z "${REDMOND_WRAPPER_DISABLE_DEFAULT_CONFIG:-}" ] && \
+    [ -f "$default_wrapper_config" ]
+  then
+    redmond_wrapper_config_path="$default_wrapper_config"
+    redmond_load_config_file "$redmond_wrapper_config_path"
+  fi
+
+  game_dir="${REDMOND_GAME_DIR:-$default_game_dir}"
+  server_dir="$game_dir/server"
+  stop_timeout_seconds="${REDMOND_STOP_TIMEOUT_SECONDS:-20}"
+  shutdown_grace_seconds="${REDMOND_SHUTDOWN_GRACE_SECONDS:-5}"
+  reload_timeout_seconds="${REDMOND_RELOAD_TIMEOUT_SECONDS:-30}"
+}
 
 ensure_evennia() {
   if ! command -v evennia >/dev/null 2>&1; then
@@ -60,6 +279,32 @@ runtime_flag_files() {
 
 ensure_runtime_layout() {
   mkdir -p "$server_dir/logs" "$server_dir/backups"
+}
+
+require_sqlite_local_recovery() {
+  local python_cmd
+  python_cmd="$(bootstrap_python_cmd)"
+  REDMOND_GAME_DIR="$game_dir" \
+  PYTHONPATH="$pythonpath_dir${PYTHONPATH:+:$PYTHONPATH}" \
+    "$python_cmd" - <<'PY'
+from __future__ import annotations
+
+from pathlib import Path
+import os
+import sys
+
+from redmond_server.game.server.conf import _database
+
+
+game_dir = Path(os.environ["REDMOND_GAME_DIR"]).resolve()
+metadata = _database.describe_database_config(game_dir=game_dir)
+if metadata["engine"] != "sqlite":
+    raise SystemExit(
+        "SQLite-local recovery commands are available only for "
+        "SQLite-backed dev/test runs. PostgreSQL production backup "
+        "and restore are not implemented in this slice."
+    )
+PY
 }
 
 runtime_json_lines() {

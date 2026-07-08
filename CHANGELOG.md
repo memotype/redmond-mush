@@ -9,6 +9,19 @@ Rules:
 
 ## Unreleased
 
+- Add a repo-relative `--config` surface for the bash maintenance wrappers,
+  centralize config loading in `scripts/common.sh`, and document the
+  conventional `product/config/redmond.env` operator config path.
+- Add the first PostgreSQL backup-create operator surface with
+  `backup_create.sh`, a `backup-create` bootstrap command, pgBackRest
+  preflight guardrails, and Redmond-owned metadata snapshots for successful
+  full-backup runs.
+- Harden operator-facing account-password flows so bootstrap commands and
+  shell wrappers no longer accept account passwords via argv or env vars in
+  ordinary use.
+- Add an explicit stdin-only `REDMOND_TEST_PASSWORD_INPUT=1` test seam for
+  password-bearing bootstrap automation, add a CLI-level non-TTY rejection
+  test, and update the product docs and test harness around that contract.
 - Add optional `REDMOND_DATABASE_URL`-driven PostgreSQL settings selection
   while keeping explicit SQLite defaults for local bootstrap and tests.
 - Extend bootstrap diagnostics to report sanitized active database metadata
@@ -16,6 +29,24 @@ Rules:
   PostgreSQL container.
 - Document the PostgreSQL configuration path and the current SQLite-first
   local workflow in the exported product README.
+- Harden the SQLite-local backup, restore, and reset helpers so they refuse
+  PostgreSQL-backed runs, reject incomplete archives, preserve live files
+  until archive validation succeeds, and tighten secret-bearing artifact
+  permissions.
+- Tighten the SQLite-local recovery wrappers so backup no longer recreates
+  missing secret settings, PostgreSQL-backed restore refuses before runtime
+  stop side effects, and restore staging stays on the target filesystem to
+  avoid cross-device promotion failures.
+- Define the PostgreSQL backup contract in game-dir config, add read-only
+  backup status and restore-point listing operator surfaces, and document the
+  local-root plus mounted-storage override model without enabling PostgreSQL
+  backup or restore execution yet.
+- Clarify the OSS product documentation split so `README.md` is operator-
+  facing, `CONTRIBUTING.md` is contributor-facing, and `scripts/README.md`
+  serves as the operator command reference.
+- Complete the OSS doc split by adding `product/scripts/CONTRIBUTING.md`,
+  moving script and harness contributor guidance there, and restoring the
+  lost Compose validation setup and safety context to `product/CONTRIBUTING.md`.
 
 ## v0.0.9 - 2026-06-25
 

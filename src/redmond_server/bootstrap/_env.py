@@ -7,6 +7,7 @@ import importlib.util
 import os
 from pathlib import Path
 import secrets
+import stat
 import sys
 from types import ModuleType
 
@@ -45,6 +46,7 @@ def ensure_secret_settings(game_dir: Path) -> Path:
     target_text += f"SSH_PORTS = [{ports[5]}]\n"
     target_text += f"AMP_PORT = {ports[6]}\n"
     target_path.write_text(target_text, encoding="ascii")
+    target_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
     return target_path
 
 

@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
+import tempfile
 import tarfile
 import unittest
 
+from redmond_server import bootstrap
+
 from tests.bootstrap_test_utils import (
+    TEST_PASSWORD_INPUT_ENV,
     account_password_matches,
     PRODUCT_ROOT,
     PYTHON_BIN,
@@ -25,15 +31,64 @@ from tests.bootstrap_test_utils import (
 
 
 class BootstrapIntegrationTest(unittest.TestCase):
+    def merged_env(self, extra: dict[str, str]) -> dict[str, str]:
+        return {**os.environ, **extra}
+
+    def write_wrapper_config(
+        self,
+        path: Path,
+        *,
+        game_dir: Path,
+        database_url: str | None = None,
+        pgbackrest_command: str | None = None,
+        stanza: str | None = None,
+    ) -> Path:
+        lines = [f"REDMOND_GAME_DIR={game_dir}"]
+        if database_url is not None:
+            lines.append(f"REDMOND_DATABASE_URL={database_url}")
+        if pgbackrest_command is not None:
+            lines.append(f"REDMOND_PGBACKREST_COMMAND={pgbackrest_command}")
+        if stanza is not None:
+            lines.append(f"REDMOND_PGBACKREST_STANZA={stanza}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(lines) + "\n", encoding="ascii")
+        return path
+
+    def write_fake_pgbackrest(
+        self,
+        *,
+        stdout_text: str = "",
+        exit_code: int = 0,
+    ) -> Path:
+        fake_bin = Path(tempfile.mkdtemp(prefix="redmond-fake-bin-"))
+        pgbackrest_path = fake_bin / "pgbackrest"
+        pgbackrest_path.write_text(
+            "#!/usr/bin/env bash\n"
+            f"printf '%s' {stdout_text!r}\n"
+            f"exit {exit_code}\n",
+            encoding="ascii",
+        )
+        pgbackrest_path.chmod(0o755)
+        return pgbackrest_path
+
     def test_account_mutations_succeed_when_staff_sync_is_deferred(
         self,
     ) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
         fault_env = {
             "PYTHONPATH": PYTHONPATH_DIR,
             "REDMOND_TEST_FAIL_STAFF_SYNC": "1",
+            TEST_PASSWORD_INPUT_ENV: "1",
         }
 
         create_result = json.loads(
@@ -45,8 +100,6 @@ class BootstrapIntegrationTest(unittest.TestCase):
                     "account-create",
                     "--username",
                     "alice",
-                    "--password",
-                    "alice-pass-1",
                     "--email",
                     "alice@example.com",
                     "--superuser",
@@ -55,6 +108,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
                 ],
                 cwd=PRODUCT_ROOT,
                 env=fault_env,
+                input_text="alice-pass-1\n",
             ).stdout
         )
         promote_result = json.loads(
@@ -103,7 +157,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_account_management_flow(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         run_command(
             [
@@ -113,15 +175,17 @@ class BootstrapIntegrationTest(unittest.TestCase):
                 "account-create",
                 "--username",
                 "alice",
-                "--password",
-                "alice-pass",
                 "--email",
                 "alice@example.com",
                 "--game-dir",
                 str(game_dir),
             ],
             cwd=PRODUCT_ROOT,
-            env={"PYTHONPATH": PYTHONPATH_DIR},
+            env={
+                "PYTHONPATH": PYTHONPATH_DIR,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="alice-pass\n",
         )
         run_command(
             [
@@ -131,13 +195,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
                 "account-set-password",
                 "--username",
                 "alice",
-                "--password",
-                "alice-pass-2",
                 "--game-dir",
                 str(game_dir),
             ],
             cwd=PRODUCT_ROOT,
-            env={"PYTHONPATH": PYTHONPATH_DIR},
+            env={
+                "PYTHONPATH": PYTHONPATH_DIR,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="alice-pass-2\n",
         )
         run_command(
             [
@@ -174,7 +240,11 @@ class BootstrapIntegrationTest(unittest.TestCase):
         run_command(
             ["./scripts/init_local.sh"],
             cwd=PRODUCT_ROOT,
-            env=build_env(game_dir),
+            env={
+                **build_env(game_dir),
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
         )
 
         state = load_state(game_dir)
@@ -190,7 +260,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_seed_is_idempotent(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         first = load_state(game_dir)
         run_command(
@@ -211,10 +289,26 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_reset_local_recreates_clean_state(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
         overwrite_room_name(game_dir, "Broken Room")
 
-        run_command(["./scripts/reset_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/reset_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         state = load_state(game_dir)
         self.assertEqual(state["ooc_room_key"], "Redmond OOC Hub")
@@ -223,7 +317,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_reset_local_cleans_stale_pidfiles(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         pidfile = game_dir / "server" / "server.pid"
         pidfile.write_text("999999\n", encoding="ascii")
@@ -232,7 +334,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
             encoding="ascii",
         )
 
-        run_command(["./scripts/reset_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/reset_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         doctor = load_doctor(game_dir)
         runtime = doctor["runtime"]
@@ -247,7 +357,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_reset_local_stops_pidfile_processes(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         proc = subprocess.Popen(
             [
@@ -262,7 +380,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
         pidfile = game_dir / "server" / "server.pid"
         pidfile.write_text(f"{proc.pid}\n", encoding="ascii")
 
-        run_command(["./scripts/reset_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/reset_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         self.assertIsNotNone(proc.poll())
         doctor = load_doctor(game_dir)
@@ -273,7 +399,15 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_doctor_command_reports_postgres_configuration(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         doctor = load_doctor(
             game_dir,
@@ -296,10 +430,368 @@ class BootstrapIntegrationTest(unittest.TestCase):
         self.assertIn("database_error", doctor)
         self.assertNotIn("secret", doctor["database_error"])
 
+    def test_backup_status_wrapper_passes_through_bootstrap_json(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        result = run_command(
+            ["./scripts/backup_status.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:5432/redmond"
+                ),
+                "REDMOND_PGBACKREST_COMMAND": "missing-pgbackrest-binary",
+            },
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["backend"], "postgresql")
+        readiness = payload["readiness"]
+        assert isinstance(readiness, dict)
+        self.assertEqual(readiness["status"], "configured_not_ready")
+
+    def test_backup_status_wrapper_accepts_absolute_config_path(self) -> None:
+        game_dir = create_game_dir()
+        bootstrap.ensure_secret_settings(game_dir)
+        repository_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "repository"
+        )
+        metadata_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "manifests"
+        )
+        repository_dir.mkdir(parents=True)
+        metadata_dir.mkdir(parents=True)
+        config_path = self.write_wrapper_config(
+            Path(tempfile.mkdtemp(prefix="redmond-config-"))
+            / "redmond.env",
+            game_dir=game_dir,
+            database_url="postgres://user:secret@127.0.0.1:5432/redmond",
+            pgbackrest_command="sh",
+        )
+
+        result = run_command(
+            [
+                "./scripts/backup_status.sh",
+                "--config",
+                str(config_path),
+            ],
+            cwd=PRODUCT_ROOT,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["backend"], "postgresql")
+        readiness = payload["readiness"]
+        assert isinstance(readiness, dict)
+        self.assertTrue(readiness["ready_for_read_only_listing"])
+
+    def test_backup_list_wrapper_passes_through_pgbackrest_output(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        bootstrap.ensure_secret_settings(game_dir)
+        repository_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "repository"
+        )
+        metadata_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "manifests"
+        )
+        repository_dir.mkdir(parents=True)
+        metadata_dir.mkdir(parents=True)
+        fake_bin = Path(tempfile.mkdtemp(prefix="redmond-fake-bin-"))
+        pgbackrest_path = fake_bin / "pgbackrest"
+        pgbackrest_path.write_text(
+            "#!/usr/bin/env bash\n"
+            "printf '%s\\n' "
+            "'[{\"name\":\"redmond\",\"status\":{\"code\":0,"
+            "\"message\":\"ok\"},\"backup\":[{\"label\":\"demo-full\","
+            "\"type\":\"full\",\"reference\":[],\"error\":false,"
+            "\"timestamp\":{\"start\":10,\"stop\":20}}]}]'\n",
+            encoding="ascii",
+        )
+        pgbackrest_path.chmod(0o755)
+
+        result = run_command(
+            ["./scripts/backup_list.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:5432/redmond"
+                ),
+                "REDMOND_PGBACKREST_COMMAND": str(pgbackrest_path),
+            },
+        )
+
+        payload = json.loads(result.stdout)
+        restore_points = payload["restore_points"]
+        assert isinstance(restore_points, list)
+        self.assertEqual(restore_points[0]["label"], "demo-full")
+        self.assertEqual(restore_points[0]["type"], "full")
+
+    def test_backup_list_wrapper_accepts_relative_config_path(self) -> None:
+        game_dir = create_game_dir()
+        bootstrap.ensure_secret_settings(game_dir)
+        repository_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "repository"
+        )
+        metadata_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "manifests"
+        )
+        repository_dir.mkdir(parents=True)
+        metadata_dir.mkdir(parents=True)
+        pgbackrest_path = self.write_fake_pgbackrest(
+            stdout_text=(
+                '[{"name":"redmond","status":{"code":0,"message":"ok"},'
+                '"backup":[{"label":"demo-full","type":"full","reference":[],'
+                '"error":false,"timestamp":{"start":10,"stop":20}}]}]'
+            ),
+        )
+        cwd = Path(tempfile.mkdtemp(prefix="redmond-wrapper-cwd-"))
+        config_path = self.write_wrapper_config(
+            cwd / "cfg" / "redmond.env",
+            game_dir=game_dir,
+            database_url="postgres://user:secret@127.0.0.1:5432/redmond",
+            pgbackrest_command=str(pgbackrest_path),
+        )
+
+        result = run_command(
+            [
+                str(PRODUCT_ROOT / "scripts" / "backup_list.sh"),
+                "--config",
+                os.path.relpath(config_path, cwd),
+            ],
+            cwd=cwd,
+        )
+
+        payload = json.loads(result.stdout)
+        restore_points = payload["restore_points"]
+        assert isinstance(restore_points, list)
+        self.assertEqual(restore_points[0]["label"], "demo-full")
+
+    def test_backup_list_wrapper_reports_failure_states(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        result = subprocess.run(
+            ["./scripts/backup_list.sh"],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(
+                {
+                    **env,
+                    "REDMOND_DATABASE_URL": (
+                        "postgres://user:secret@127.0.0.1:5432/redmond"
+                    ),
+                    "REDMOND_PGBACKREST_COMMAND": (
+                        "missing-pgbackrest-binary"
+                    ),
+                }
+            ),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pgBackRest command not found", result.stderr)
+
+    def test_backup_create_wrapper_passes_through_bootstrap_json(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        bootstrap.ensure_secret_settings(game_dir)
+        repository_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "repository"
+        )
+        repository_dir.mkdir(parents=True)
+        fake_bin = Path(tempfile.mkdtemp(prefix="redmond-fake-bin-"))
+        pgbackrest_path = fake_bin / "pgbackrest"
+        pgbackrest_path.write_text(
+            "#!/usr/bin/env bash\nexit 0\n",
+            encoding="ascii",
+        )
+        pgbackrest_path.chmod(0o755)
+
+        result = run_command(
+            ["./scripts/backup_create.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:5432/redmond"
+                ),
+                "REDMOND_PGBACKREST_COMMAND": str(pgbackrest_path),
+            },
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["backend"], "postgresql")
+        self.assertEqual(payload["backup_type"], "full")
+        self.assertEqual(
+            payload["repository_dir"],
+            str(repository_dir),
+        )
+        metadata_path = Path(str(payload["metadata_path"]))
+        self.assertTrue(metadata_path.is_file())
+        metadata_payload = json.loads(
+            metadata_path.read_text(encoding="ascii")
+        )
+        self.assertEqual(metadata_payload["backup_type"], "full")
+
+    def test_backup_create_wrapper_reports_missing_pgbackrest(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        bootstrap.ensure_secret_settings(game_dir)
+        repository_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "repository"
+        )
+        repository_dir.mkdir(parents=True)
+
+        result = subprocess.run(
+            ["./scripts/backup_create.sh"],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(
+                {
+                    **env,
+                    "REDMOND_DATABASE_URL": (
+                        "postgres://user:secret@127.0.0.1:5432/redmond"
+                    ),
+                    "REDMOND_PGBACKREST_COMMAND": (
+                        "missing-pgbackrest-binary"
+                    ),
+                }
+            ),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pgBackRest command not found", result.stderr)
+
+    def test_backup_create_wrapper_uses_default_repo_relative_config(
+        self,
+    ) -> None:
+        copied_product = Path(tempfile.mkdtemp(prefix="redmond-product-"))
+        shutil.rmtree(copied_product)
+        shutil.copytree(PRODUCT_ROOT, copied_product)
+        game_source = create_game_dir()
+        game_dir = copied_product / "test-game"
+        shutil.copytree(game_source, game_dir)
+        bootstrap.ensure_secret_settings(game_dir)
+        repository_dir = (
+            game_dir / "server" / "backups" / "postgresql" / "repository"
+        )
+        repository_dir.mkdir(parents=True)
+        fake_bin = copied_product / "fake-bin"
+        fake_bin.mkdir()
+        pgbackrest_path = fake_bin / "pgbackrest"
+        pgbackrest_path.write_text(
+            "#!/usr/bin/env bash\nexit 0\n",
+            encoding="ascii",
+        )
+        pgbackrest_path.chmod(0o755)
+        self.write_wrapper_config(
+            copied_product / "config" / "redmond.env",
+            game_dir="../test-game",
+            database_url="postgres://user:secret@127.0.0.1:5432/redmond",
+            pgbackrest_command="../fake-bin/pgbackrest",
+        )
+        cwd = Path(tempfile.mkdtemp(prefix="redmond-nonrepo-cwd-"))
+
+        result = run_command(
+            [str(copied_product / "scripts" / "backup_create.sh")],
+            cwd=cwd,
+        )
+
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["backend"], "postgresql")
+        self.assertEqual(payload["repository_dir"], str(repository_dir))
+
+    def test_backup_status_wrapper_fails_for_missing_explicit_config(
+        self,
+    ) -> None:
+        missing_path = Path(tempfile.mkdtemp(prefix="redmond-config-"))
+        result = subprocess.run(
+            [
+                str(PRODUCT_ROOT / "scripts" / "backup_status.sh"),
+                "--config",
+                str(missing_path / "missing.env"),
+            ],
+            cwd=Path(tempfile.mkdtemp(prefix="redmond-wrapper-cwd-")),
+            env=self.merged_env({}),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Config file not found", result.stderr)
+
+    def test_backup_create_wrapper_rejects_sqlite_configuration(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+
+        result = subprocess.run(
+            ["./scripts/backup_create.sh"],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(env),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PostgreSQL backup creation", result.stderr)
+
+    def test_account_set_admin_wrapper_preserves_positional_args_with_config(
+        self,
+    ) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        config_path = self.write_wrapper_config(
+            Path(tempfile.mkdtemp(prefix="redmond-config-"))
+            / "redmond.env",
+            game_dir=game_dir,
+        )
+
+        run_command(
+            [
+                "./scripts/account_set_admin.sh",
+                "--config",
+                str(config_path),
+                "admin",
+                "true",
+            ],
+            cwd=PRODUCT_ROOT,
+        )
+
+        accounts = load_accounts(game_dir)
+        admin = next(
+            account
+            for account in accounts
+            if account["username"] == "admin"
+        )
+        self.assertTrue(admin["is_superuser"])
+
     def test_backup_and_restore_round_trip(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
-        run_command(["./scripts/init_local.sh"], cwd=PRODUCT_ROOT, env=env)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
 
         backup_result = run_command(
             ["./scripts/backup_local.sh"],
@@ -323,3 +815,239 @@ class BootstrapIntegrationTest(unittest.TestCase):
 
         state = load_state(game_dir)
         self.assertEqual(state["ooc_room_key"], "Redmond OOC Hub")
+
+    def test_backup_local_rejects_postgres_configuration(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+
+        result = subprocess.run(
+            ["./scripts/backup_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(
+                {
+                **env,
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:5432/redmond"
+                ),
+                }
+            ),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SQLite-local recovery commands", result.stderr)
+
+    def test_backup_local_fails_without_recreating_secret_settings(
+        self,
+    ) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        secret_settings = game_dir / "server" / "conf" / "secret_settings.py"
+        secret_settings.unlink()
+
+        result = subprocess.run(
+            ["./scripts/backup_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(env),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("server/conf/secret_settings.py", result.stderr)
+        self.assertFalse(secret_settings.exists())
+
+    def test_restore_local_rejects_postgres_configuration(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        backup_result = run_command(
+            ["./scripts/backup_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env=env,
+        )
+        archive_path = Path(
+            backup_result.stdout.strip().split(": ", maxsplit=1)[-1]
+        )
+
+        result = subprocess.run(
+            ["./scripts/restore_local.sh", str(archive_path)],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(
+                {
+                **env,
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:5432/redmond"
+                ),
+                }
+            ),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SQLite-local recovery commands", result.stderr)
+
+    def test_restore_local_rejects_postgres_before_stop_side_effects(
+        self,
+    ) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        backup_result = run_command(
+            ["./scripts/backup_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env=env,
+        )
+        archive_path = Path(
+            backup_result.stdout.strip().split(": ", maxsplit=1)[-1]
+        )
+
+        proc = subprocess.Popen(
+            [
+                "bash",
+                "-lc",
+                f'exec -a "{game_dir}/server/server.pid" sleep 300',
+            ],
+            cwd=PRODUCT_ROOT,
+            text=True,
+        )
+        self.addCleanup(cleanup_process, proc)
+        pidfile = game_dir / "server" / "server.pid"
+        pidfile.write_text(f"{proc.pid}\n", encoding="ascii")
+
+        result = subprocess.run(
+            ["./scripts/restore_local.sh", str(archive_path)],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(
+                {
+                    **env,
+                    "REDMOND_DATABASE_URL": (
+                        "postgres://user:secret@127.0.0.1:5432/redmond"
+                    ),
+                }
+            ),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SQLite-local recovery commands", result.stderr)
+        self.assertIsNone(proc.poll())
+        self.assertTrue(pidfile.exists())
+
+    def test_reset_local_rejects_postgres_configuration_before_delete(
+        self,
+    ) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        sqlite_path = game_dir / "server" / "evennia.db3"
+        self.assertTrue(sqlite_path.exists())
+
+        result = subprocess.run(
+            ["./scripts/reset_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(
+                {
+                **env,
+                "REDMOND_DATABASE_URL": (
+                    "postgres://user:secret@127.0.0.1:5432/redmond"
+                ),
+                }
+            ),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SQLite-local recovery commands", result.stderr)
+        self.assertTrue(sqlite_path.exists())
+
+    def test_restore_local_invalid_archive_keeps_live_state(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        sqlite_path = game_dir / "server" / "evennia.db3"
+        secret_settings = game_dir / "server" / "conf" / "secret_settings.py"
+        live_db = sqlite_path.read_bytes()
+        live_secret = secret_settings.read_text(encoding="ascii")
+        archive_root = Path(tempfile.mkdtemp(prefix="redmond-archive-"))
+        archive_path = archive_root / "bad.tar.gz"
+        payload = archive_root / "unexpected.txt"
+        payload.write_text("bad\n", encoding="ascii")
+        with tarfile.open(archive_path, "w:gz") as archive:
+            archive.add(payload, arcname="unexpected.txt")
+
+        result = subprocess.run(
+            ["./scripts/restore_local.sh", str(archive_path)],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env(env),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unexpected backup member", result.stderr)
+        self.assertEqual(sqlite_path.read_bytes(), live_db)
+        self.assertEqual(
+            secret_settings.read_text(encoding="ascii"),
+            live_secret,
+        )

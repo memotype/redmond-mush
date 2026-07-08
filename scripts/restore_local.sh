@@ -4,14 +4,31 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
+print_usage() {
+  cat <<EOF
+Usage: $0 [options] <backup-archive>
+
+Restore one SQLite-local dev/test backup archive.
+
+EOF
+  redmond_print_common_options
+}
+
+redmond_init "$@"
+set -- "${redmond_wrapper_args[@]}"
+
+if [ "$redmond_show_help" -eq 1 ]; then
+  print_usage
+  exit 0
+fi
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <backup-archive>" >&2
-  exit 1
+  redmond_usage_error "Usage: $0 [options] <backup-archive>"
 fi
 
 archive_path="$1"
 
 ensure_evennia
+require_sqlite_local_recovery
 stop_evennia_runtime
 run_bootstrap restore --archive "$archive_path"
 

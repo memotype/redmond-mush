@@ -10,7 +10,13 @@ from ._accounts import (
     set_account_superuser,
     verify_account_password,
 )
-from ._backup import create_backup, restore_backup, run_migrations
+from ._backup import (
+    create_backup,
+    create_postgresql_backup,
+    restore_backup,
+    run_migrations,
+)
+from ._backup_contract import backup_list, backup_status
 from ._cli import build_parser, main, print_json
 from ._env import configure_django, ensure_secret_settings, game_dir_arg
 from ._runtime import reserve_local_ports, runtime_state
@@ -28,10 +34,13 @@ __all__ = [
     "AccountState",
     "BootstrapState",
     "build_parser",
+    "backup_list",
+    "backup_status",
     "configure_django",
     "current_state",
     "create_account",
     "create_backup",
+    "create_postgresql_backup",
     "diagnostic_state",
     "dump_state",
     "ensure_secret_settings",

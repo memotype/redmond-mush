@@ -4,9 +4,25 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
+print_usage() {
+  cat <<EOF
+Usage: $0 [options] <username> <true|false>
+
+Promote or demote one local account's admin role.
+
+EOF
+  redmond_print_common_options
+}
+
+redmond_init "$@"
+set -- "${redmond_wrapper_args[@]}"
+
+if [ "$redmond_show_help" -eq 1 ]; then
+  print_usage
+  exit 0
+fi
 if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <username> <true|false>" >&2
-  exit 1
+  redmond_usage_error "Usage: $0 [options] <username> <true|false>"
 fi
 
 ensure_evennia

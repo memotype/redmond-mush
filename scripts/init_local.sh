@@ -4,20 +4,44 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
+print_usage() {
+  cat <<EOF
+Usage: $0 [options]
+
+Bootstrap the local SQLite-backed development game dir.
+
+EOF
+  redmond_print_common_options
+}
+
+redmond_init "$@"
+set -- "${redmond_wrapper_args[@]}"
+
+if [ "$redmond_show_help" -eq 1 ]; then
+  print_usage
+  exit 0
+fi
+if [ "$#" -ne 0 ]; then
+  redmond_usage_error "Usage: $0 [options]"
+fi
+
 prompt_superuser_values() {
   if run_bootstrap has-superuser >/dev/null 2>&1; then
     return
   fi
 
-  if [ -n "${EVENNIA_SUPERUSER_USERNAME:-}" ] && \
-     [ -n "${EVENNIA_SUPERUSER_PASSWORD:-}" ]; then
-    return
+  if [ -n "${EVENNIA_SUPERUSER_PASSWORD:-}" ]; then
+    echo "EVENNIA_SUPERUSER_PASSWORD is no longer supported." >&2
+    echo "Use the interactive password prompt, or stdin with REDMOND_TEST_PASSWORD_INPUT=1 for automated tests." >&2
+    exit 1
   fi
 
-  read -r -p "Bootstrap superuser username: " EVENNIA_SUPERUSER_USERNAME
-  read -r -p "Bootstrap superuser email (optional): " EVENNIA_SUPERUSER_EMAIL
-  read -r -s -p "Bootstrap superuser password: " EVENNIA_SUPERUSER_PASSWORD
-  echo
+  if [ -z "${EVENNIA_SUPERUSER_USERNAME:-}" ]; then
+    read -r -p "Bootstrap superuser username: " EVENNIA_SUPERUSER_USERNAME
+  fi
+  if [ -z "${EVENNIA_SUPERUSER_EMAIL:-}" ]; then
+    read -r -p "Bootstrap superuser email (optional): " EVENNIA_SUPERUSER_EMAIL
+  fi
 }
 
 bootstrap_initial_world() {
@@ -41,7 +65,6 @@ fi
 prompt_superuser_values
 run_bootstrap ensure-superuser \
   --username "${EVENNIA_SUPERUSER_USERNAME}" \
-  --password "${EVENNIA_SUPERUSER_PASSWORD}" \
   --email "${EVENNIA_SUPERUSER_EMAIL:-}" >/dev/null
 
 bootstrap_initial_world

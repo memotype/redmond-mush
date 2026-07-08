@@ -17,8 +17,15 @@ from ._accounts import (
     set_account_superuser,
     verify_account_password,
 )
-from ._backup import create_backup, restore_backup, run_migrations
+from ._backup import (
+    create_backup,
+    create_postgresql_backup,
+    restore_backup,
+    run_migrations,
+)
+from ._backup_contract import backup_list, backup_status
 from ._env import ensure_secret_settings, game_dir_arg
+from ._passwords import read_password
 from ._world import (
     current_state,
     diagnostic_state,
@@ -62,7 +69,6 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[common_parser],
     )
     ensure_superuser_parser.add_argument("--username", required=True)
-    ensure_superuser_parser.add_argument("--password", required=True)
     ensure_superuser_parser.add_argument("--email", default="")
 
     account_list_parser = subparsers.add_parser(
@@ -80,7 +86,6 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[common_parser],
     )
     account_create_parser.add_argument("--username", required=True)
-    account_create_parser.add_argument("--password", required=True)
     account_create_parser.add_argument("--email", default="")
     account_create_parser.add_argument(
         "--superuser",
@@ -92,14 +97,12 @@ def build_parser() -> argparse.ArgumentParser:
         parents=[common_parser],
     )
     account_password_parser.add_argument("--username", required=True)
-    account_password_parser.add_argument("--password", required=True)
 
     account_verify_parser = subparsers.add_parser(
         "account-verify-password",
         parents=[common_parser],
     )
     account_verify_parser.add_argument("--username", required=True)
-    account_verify_parser.add_argument("--password", required=True)
 
     account_superuser_parser = subparsers.add_parser(
         "account-set-superuser",
@@ -126,6 +129,9 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("doctor", parents=[common_parser])
     subparsers.add_parser("initial-setup", parents=[common_parser])
     subparsers.add_parser("migrate", parents=[common_parser])
+    subparsers.add_parser("backup-status", parents=[common_parser])
+    subparsers.add_parser("backup-list", parents=[common_parser])
+    subparsers.add_parser("backup-create", parents=[common_parser])
 
     backup_parser = subparsers.add_parser(
         "backup",
@@ -160,10 +166,14 @@ def main() -> int:
         return 0
 
     if args.command == "ensure-superuser":
+        password = read_password(
+            f"Bootstrap superuser password for {args.username}: ",
+            confirm=True,
+        )
         username = ensure_superuser(
             game_dir=args.game_dir,
             username=args.username,
-            password=args.password,
+            password=password,
             email=args.email,
         )
         print(username)
@@ -192,11 +202,15 @@ def main() -> int:
         return 0
 
     if args.command == "account-create":
+        password = read_password(
+            f"Password for new account {args.username}: ",
+            confirm=True,
+        )
         print_json(
             create_account(
                 game_dir=args.game_dir,
                 username=args.username,
-                password=args.password,
+                password=password,
                 email=args.email,
                 is_superuser=args.superuser,
             )
@@ -204,21 +218,29 @@ def main() -> int:
         return 0
 
     if args.command == "account-set-password":
+        password = read_password(
+            f"New password for {args.username}: ",
+            confirm=True,
+        )
         print_json(
             set_account_password(
                 game_dir=args.game_dir,
                 username=args.username,
-                password=args.password,
+                password=password,
             )
         )
         return 0
 
     if args.command == "account-verify-password":
+        password = read_password(
+            f"Password for {args.username}: ",
+            confirm=False,
+        )
         print_json(
             verify_account_password(
                 game_dir=args.game_dir,
                 username=args.username,
-                password=args.password,
+                password=password,
             )
         )
         return 0
@@ -274,6 +296,18 @@ def main() -> int:
 
     if args.command == "doctor":
         print_json(collect_quietly(diagnostic_state, args.game_dir))
+        return 0
+
+    if args.command == "backup-status":
+        print_json(backup_status(args.game_dir))
+        return 0
+
+    if args.command == "backup-list":
+        print_json(backup_list(args.game_dir))
+        return 0
+
+    if args.command == "backup-create":
+        print_json(create_postgresql_backup(args.game_dir))
         return 0
 
     if args.command == "migrate":

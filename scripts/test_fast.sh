@@ -10,4 +10,5 @@ PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}" \
   python3 -m unittest \
   tests.test_smoke \
   tests.test_bootstrap_fast \
+  tests.test_compose_contract \
   -v
