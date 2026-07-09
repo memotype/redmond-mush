@@ -9,6 +9,9 @@ Rules:
 
 ## Unreleased
 
+- Rewrite the public README, contributing guide, script docs, and related
+  support docs so the repository reads more naturally to first-time OSS
+  operators and contributors.
 - Add a repo-relative `--config` surface for the bash maintenance wrappers,
   centralize config loading in `scripts/common.sh`, and document the
   conventional `product/config/redmond.env` operator config path.

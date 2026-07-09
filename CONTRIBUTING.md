@@ -2,27 +2,30 @@
 
 Thanks for your interest in contributing to `redmond-mush`.
 
-## Docs map
+Useful contributions include bug fixes, tests, setup improvements, admin
+tooling, docs, and carefully scoped gameplay foundations that match the
+project's current direction.
 
-- `README.md` is the operator and product entrypoint.
-- `CONTRIBUTING.md` is the contributor workflow guide.
-- `scripts/README.md` is the operator-facing command reference.
-- `scripts/CONTRIBUTING.md` is the contributor guide for script and harness
-  work under `product/scripts/`.
+Good places to start:
 
-## Workflow
+- `README.md` for the current project shape and local operator workflow
+- `scripts/README.md` for the admin command guide
+- `docs/text-formatting.md` for player-facing text conventions
 
-- Open issues and pull requests against this public repo as usual.
+## Basic workflow
+
+- Open issues and pull requests against this repo as usual.
 - Keep changes focused and easy to review.
 - Include tests when behavior changes.
-- Keep public-facing wording aligned with the OSS product surface.
+- Keep public-facing wording clear, welcoming, and consistent with the
+  standalone `redmond-mush` repo experience.
 
 For player-facing output, prefer native Evennia text markup and follow
 `docs/text-formatting.md`.
 
-## Validation
+## Local setup
 
-Create a local virtual environment and install the product in editable mode:
+Create a virtual environment and install the project in editable mode:
 
 ```sh
 python3 -m venv .venv
@@ -31,7 +34,11 @@ python -m pip install --upgrade pip
 pip install -e ".[dev]"
 ```
 
-Baseline validation for ordinary product changes:
+## Validation
+
+### Basic checks
+
+Run these for ordinary product changes:
 
 ```sh
 ruff check .
@@ -39,58 +46,60 @@ mypy src tests
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-For product-only work, use the split harness:
+### Full checks
 
-```sh
-./scripts/test_fast.sh
-./scripts/test_full.sh
-```
-
-Use the harnesses this way:
+Use the split harnesses this way:
 
 - `./scripts/test_fast.sh` for edit-time feedback during ordinary work
-- `./scripts/test_full.sh` before opening a PR or creating a release-visible
-  changeset that touches `product/`
-- `./scripts/test_compose.sh` only when the change affects the optional local
-  Docker Compose PostgreSQL parity workflow or related docs and scripts
+- `./scripts/test_full.sh` before opening a PR or finalizing a
+  release-visible change that touches `product/`
 
-`test_compose.sh` is opt-in. It validates static Compose configuration, image
-build, live PostgreSQL wiring, explicit bootstrap steps, service startup, safe
-shutdown, preserved-volume restart behavior, and disposable cleanup.
+### Compose-only checks
+
+`./scripts/test_compose.sh` is opt-in. Use it when the change affects:
+
+- the optional local Docker Compose PostgreSQL workflow
+- PostgreSQL wiring
+- container startup or lifecycle docs
+- maintenance scripts or docs that describe the Compose validation path
+
 Before running it, prepare the local env file:
 
 ```sh
 cp compose.env.example compose.env
 ```
 
-Compose validation safety notes:
+`test_compose.sh`:
 
-- `test_compose.sh` always uses a unique isolated Compose project
-- it does not tear down an ordinary local Redmond Compose stack
-- it passes the ordinary env file first and a temporary validation overlay
-  second
-- the validation overlay uses loopback-only ephemeral host ports instead of
-  reusing the operator's normal `4000`/`4001`/`4002` bindings
-- ordinary `unittest` runs do not require Docker
+- always uses a unique isolated Compose project
+- does not tear down an ordinary local Redmond Compose stack
+- passes the ordinary env file first and a temporary validation overlay second
+- uses loopback-only ephemeral host ports instead of reusing the default
+  `4000`/`4001`/`4002` bindings
+- validates static Compose config, image build, live PostgreSQL wiring,
+  explicit bootstrap steps, service startup, clean shutdown, preserved-volume
+  restart behavior, and disposable cleanup
 
-For script-specific contributor expectations, including harness ownership and
-wrapper design rules, see `scripts/CONTRIBUTING.md`.
+Ordinary `unittest` runs do not require Docker.
+
+For script-specific contributor expectations, including wrapper and harness
+guidance, see `scripts/CONTRIBUTING.md`.
 
 ## Release-visible changes
 
-When a changeset materially changes exported product behavior, public docs,
-packaging metadata, exported tests, maintenance scripts, or exported assets
-under `product/`, update `product/CHANGELOG.md` in that same changeset when
-the change is intended to be release-visible.
+If your change materially affects behavior, public docs, packaging metadata,
+tests, maintenance scripts, or exported assets under `product/`, update
+`product/CHANGELOG.md` in the same changeset when the change is meant to be
+visible in a release.
 
-Before opening a pull request for release-visible work:
+Before opening a PR for that kind of work:
 
 - review `product/CHANGELOG.md`
-- ensure the matching entry is included in the same changeset
-- ensure behavior-changing edits have matching validation coverage or an
-  explicit justification
+- make sure the matching entry is in the same changeset
+- make sure behavior-changing edits include matching validation coverage or a
+  clear justification
 
-## Upstream maintenance note
+## Maintainer note
 
-Maintainers may reconcile accepted public changes through a private upstream
-workflow before they appear in later public releases.
+Accepted public changes may later be reconciled through the maintainers'
+upstream release workflow before they appear in a published release.

@@ -18,7 +18,7 @@ Evennia parses those tags when sending text to the client:
 - The Evennia webclient receives translated HTML and CSS output.
 - Clients that do not support color should still receive readable plain text.
 
-This keeps one source string portable across the main client surfaces without
+This keeps one source string portable across the main client types without
 requiring Redmond-specific formatting code.
 
 ## Use This, Not That
@@ -33,7 +33,7 @@ Avoid:
 
 - raw ANSI escape sequences such as `\x1b[31m`
 - a custom Redmond formatting syntax layered on top of Evennia
-- formatting that only works in one client surface
+- formatting that only works in one client
 
 ## Common Tags
 
@@ -49,8 +49,7 @@ These are the tags Redmond authors should reach for most often:
 - `|x`: dark gray foreground
 
 Evennia supports additional colors and richer color systems, but Redmond
-should document and use only the common subset unless a real product need
-appears.
+should document and use only the common subset unless a real need appears.
 
 ## Examples
 

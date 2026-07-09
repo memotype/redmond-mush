@@ -1,15 +1,14 @@
 # Contributing To Scripts
 
-This file is the contributor guide for the maintenance scripts under
-`product/scripts/`.
+This file covers the maintenance scripts under `product/scripts/`.
 
-For operator-facing command behavior, see `README.md` in this directory.
-For broader product contribution workflow, validation, and release-note
-expectations, see `../CONTRIBUTING.md`.
+For the operator-facing command guide, see `README.md` in this directory. For
+broader contributor workflow, validation, and changelog expectations, see
+`../CONTRIBUTING.md`.
 
 ## Script categories
 
-Operator-facing runtime and recovery surfaces:
+Operator commands:
 
 - `init_local.sh`
 - `reset_local.sh`
@@ -17,6 +16,7 @@ Operator-facing runtime and recovery surfaces:
 - `restore_local.sh`
 - `backup_status.sh`
 - `backup_list.sh`
+- `backup_create.sh`
 - `status_local.sh`
 - `accounts_list.sh`
 - `account_create.sh`
@@ -34,12 +34,12 @@ Contributor validation harnesses:
 
 - Use `./test_fast.sh` for ordinary edit-time feedback.
 - Use `./test_full.sh` before opening a PR or finalizing a release-visible
-  changeset that touches `product/`.
+  change that touches `product/`.
 - Use `./test_compose.sh` when the change affects:
   - Docker Compose parity behavior
   - PostgreSQL wiring
   - container startup or lifecycle docs
-  - maintenance scripts or docs that change the Compose validation contract
+  - maintenance scripts or docs that describe the Compose validation path
 
 Compose validation setup:
 
@@ -48,7 +48,7 @@ cp ../compose.env.example ../compose.env
 ./test_compose.sh
 ```
 
-Compose validation safety notes:
+Compose validation notes:
 
 - `test_compose.sh` is opt-in contributor tooling, not an operator runtime
   command
@@ -57,25 +57,25 @@ Compose validation safety notes:
 - it passes the ordinary env file first and a temporary validation overlay
   second
 - the overlay uses loopback-only ephemeral host ports instead of reusing the
-  operator's normal bindings
+  usual local bindings
 
 ## Script edit expectations
 
 - Keep thin wrapper scripts thin.
-- Preserve the bootstrap CLI as the authoritative implementation surface where
-  one already exists.
-- Prefer calling supported bootstrap commands over replacing them with ad hoc
-  inline Django or Evennia snippets.
+- Keep the bootstrap CLI as the main implementation path where one already
+  exists.
+- Prefer supported bootstrap commands over ad hoc inline Django or Evennia
+  snippets.
 - Keep operator-facing scripts boring and explicit.
-- Treat recovery-sensitive scripts as safety surfaces first and convenience
-  surfaces second.
+- Treat recovery-sensitive scripts as safety-first tools and convenience
+  features second.
 
-## Recovery and safety framing
+## Recovery and safety notes
 
 - SQLite-local backup, restore, and reset remain dev/test-only recovery tools
-  in the current product phase.
-- PostgreSQL backup inspection is read-only in the current phase; contributor
-  changes must not accidentally introduce create, prune, restore, or cutover
-  side effects through the inspection surfaces.
+  in the current phase.
+- PostgreSQL backup inspection is read-only in the current phase. Changes to
+  those paths must not accidentally introduce create, prune, restore, or
+  cutover side effects.
 - Password-bearing operator flows must continue to use secure interactive
   reads in ordinary use.

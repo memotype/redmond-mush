@@ -1,16 +1,16 @@
 # Scripts
 
-This directory contains public-safe product maintenance scripts.
+This directory contains the shell commands that help you run, inspect, and
+maintain a Redmond server.
 
-This file is the operator-facing command reference for the shipped maintenance
-scripts. For contributor workflow and validation policy, see
-`../CONTRIBUTING.md`.
-For script-local contributor notes, including validation harness usage, see
-`CONTRIBUTING.md` in this directory.
+If you are contributing code or docs, start with `../CONTRIBUTING.md`. If you
+are looking for script-specific contributor guidance, see `CONTRIBUTING.md` in
+this directory.
 
-Shared wrapper config:
+## Shared wrapper config
 
-- wrappers that source `common.sh` accept `-c` / `--config <path>`
+Most wrappers that source `common.sh` accept `-c` / `--config <path>`.
+
 - explicit relative config paths resolve from the caller's current directory
 - when `--config` is omitted, wrappers load `product/config/redmond.env`
   relative to the script tree only if that file exists
@@ -19,116 +19,150 @@ Shared wrapper config:
 - path-like values from wrapper config files resolve relative to the config
   file location
 
-Current Milestone 1 entrypoints:
+## Initialize a local server
 
-- `init_local.sh`
-  - create local secret settings if needed
-  - migrate the SQLite database
-  - ensure a bootstrap superuser exists
-  - run the one-time Evennia world bootstrap when needed
-  - run the idempotent Redmond seed step
-- `reset_local.sh`
-  - stop Evennia for this local game dir
-  - clean up stale pid and restart files if a prior local run exited badly
-  - remove the local SQLite database
-  - rerun `init_local.sh`
-  - refuse PostgreSQL-backed runs
-- `backup_local.sh`
-  - archive the local SQLite database and generated secret settings
-  - require both files to exist before writing the archive
-  - refuse PostgreSQL-backed runs
-- `restore_local.sh <archive>`
-  - restore a local SQLite backup archive and reapply the Redmond seed step
-  - validate the archive completely before replacing live files
-  - refuse PostgreSQL-backed runs
-- `backup_status.sh`
-  - print read-only PostgreSQL backup contract status as bootstrap JSON
-- `backup_list.sh`
-  - list PostgreSQL restore points through read-only `pgbackrest info`
-- `backup_create.sh`
-  - create a PostgreSQL full backup through `pgbackrest backup`
-  - require a PostgreSQL-backed configuration
-  - require an existing pgBackRest repository directory and persistent-file
-    contract readiness before mutation
-  - write a Redmond metadata snapshot under the configured metadata dir after
-    successful backup creation
-- `status_local.sh`
-  - print bootstrap JSON diagnostics for local database, pidfiles, and
-  runtime flags
+Use `init_local.sh` to set up or finish setting up a local SQLite-backed
+instance.
+
+It will:
+
+- create local secret settings if needed
+- migrate the SQLite database
+- ensure a bootstrap superuser exists
+- run the one-time Evennia world bootstrap when needed
+- run the idempotent Redmond seed step
+
+## Reset local state
+
+Use `reset_local.sh` when you want a fresh local SQLite-backed instance.
+
+It will:
+
+- stop Evennia for the local game directory
+- clean up stale pid or restart files left by a bad shutdown
+- remove the local SQLite database
+- rerun `init_local.sh`
+
+`reset_local.sh` refuses PostgreSQL-backed runs.
+
+## Inspect local status
+
+Use `status_local.sh` to print local bootstrap and runtime diagnostics as
+JSON.
+
+It is meant to stay useful even when the live Evennia runtime is stopped or
+unhealthy, as long as the game directory, settings, and database still load.
+
+## Manage accounts
+
+Use these commands for day-to-day local account administration:
+
 - `accounts_list.sh`
-  - print local accounts with ids, usernames, emails, and admin role state
+  - prints local accounts with ids, usernames, emails, and admin role state
 - `account_create.sh <username> [email] [--superuser]`
-  - create a new local account
-  - reload a live local server so the new account is immediately usable
-  - primary account creation now satisfies the `DB-up only` recovery contract
-  - optional staff-channel sync may be deferred when runtime-only world access
-    is unavailable
+  - creates a local account
+  - reloads a live local server so the new account is immediately usable
 - `account_set_password.sh <username>`
-  - reset a local account password
-  - reload a live local server so the new password is immediately usable
-  - current implementation satisfies the `DB-up only` recovery contract
+  - resets a local account password
+  - reloads a live local server so the new password takes effect immediately
 - `account_set_admin.sh <username> <true|false>`
-  - promote or demote an account's local admin/superuser role
-  - reload a live local server so role changes take effect immediately
-  - primary role changes now satisfy the `DB-up only` recovery contract
-  - optional staff-channel sync may be deferred when runtime-only world access
-    is unavailable
-- `container_start.sh`
-  - start the committed game dir inside the reusable container image
-  - use supported Evennia start and stop commands only
-  - keep normal runtime startup separate from migrations, seed, and admin
-    creation
+  - promotes or demotes a local admin or superuser role
+  - reloads a live local server so the role change takes effect immediately
 
-## Recovery contract notes
+These account commands are designed to keep working even if the live server is
+down, as long as Django can still load the local database. Automatic reloads
+and staff-channel synchronization are convenience follow-up behavior, not the
+core degraded-state guarantee.
 
-Milestone 1 recovery uses a `DB-up only` contract:
+Ordinary password-bearing flows use secure interactive reads. Passwords should
+not be passed through shell arguments or environment variables. Automated
+tests may enable `REDMOND_TEST_PASSWORD_INPUT=1` and feed one password value
+on stdin.
 
-- supported degraded-state guarantee:
-  - game dir, settings, and database still load
-  - live Evennia runtime may be stopped or unhealthy
-- not covered:
-  - arbitrary database corruption
-  - lower-level environment repair
+## Back up SQLite local state
 
-Current recovery classification:
+Use these commands for ordinary SQLite-local dev/test recovery:
 
-- meets `DB-up only` now:
-  - `accounts_list.sh`
-  - `account_create.sh`
-  - `account_set_password.sh`
-  - `account_set_admin.sh`
-  - `status_local.sh`
-  - `backup_local.sh`
-- `status_local.sh` is intended to stay useful whenever bootstrap diagnostics
-  can run, even when the live Evennia runtime is stopped or unhealthy.
-- `restore_local.sh` also satisfies the contract for archive recovery.
-  - reseed is now best-effort follow-up work and may be deferred with a
-    warning when runtime-only world access is unavailable
-  - the archive must contain the full SQLite-local member set before any live
-    file replacement begins
-- `backup_status.sh` and `backup_list.sh` are read-only PostgreSQL contract
-  inspection tools.
-  - they must not create backups, prune repositories, restore data, or
-    promote a replacement database
-- `backup_create.sh` is the first PostgreSQL mutation tool.
-  - it always requests a full backup
-  - it must not initialize a pgBackRest repository or stanza for the
-    operator
-- A cron-oriented operator setup can keep instance values in
-  `product/config/redmond.env` and call wrappers directly without `cd`.
-- live runtime convenience only:
-  - automatic reload after mutating account scripts
+- `backup_local.sh`
+  - creates one archive containing the local SQLite database and generated
+    secret settings
+  - requires both files to exist before writing the archive
+- `restore_local.sh <archive>`
+  - restores one local SQLite backup archive
+  - validates the full archive before replacing live files
+  - reruns the Redmond seed step as best-effort follow-up work
 
-Phase 2 should preserve these shell wrappers while separating recovery-safe
-bootstrap operations from runtime-only side effects such as live reload and
-staff-channel synchronization.
+Important limits:
 
-Password-handling contract:
+- these are SQLite-local dev/test tools, not the final production recovery
+  workflow
+- both commands refuse PostgreSQL-backed runs
+- restore may warn that reseed was deferred if runtime-only world access is
+  unavailable after extraction
 
-- ordinary operator flows must use secure interactive password reads
-- account passwords must not be passed through shell arguments or env vars
-- automated tests may enable `REDMOND_TEST_PASSWORD_INPUT=1` and feed one
-  password value on stdin for password-bearing bootstrap commands
+## Inspect PostgreSQL backup readiness
+
+These commands are read-only:
+
+- `backup_status.sh`
+  - prints PostgreSQL backup-readiness details as JSON
+- `backup_list.sh`
+  - lists PostgreSQL restore points through read-only `pgbackrest info`
+
+They are safe inspection tools. They do not create backups, prune repositories,
+restore data, or promote a replacement database.
+
+## Create a PostgreSQL backup
+
+Use `backup_create.sh` to request a full PostgreSQL backup through
+`pgbackrest backup`.
+
+Current behavior:
+
+- requires a PostgreSQL-backed configuration
+- requires an existing pgBackRest repository directory
+- requires valid persistent-file readiness before mutation
+- writes a Redmond metadata snapshot under the configured metadata directory
+  after a successful backup
+
+Current limits:
+
+- it always requests a full backup
+- it does not initialize the pgBackRest repository or stanza for you
+- PostgreSQL restore execution, cutover, pruning, and retention automation are
+  not shipped yet
+
+The default PostgreSQL backup settings live in
+`src/redmond_server/game/server/conf/_backup.py`.
+
+## Run the container entrypoint
+
+Use `container_start.sh` to start the committed game directory inside the
+reusable container image.
+
+It is intentionally narrow:
+
+- it starts the normal runtime
+- it uses supported Evennia start and stop commands only
+- it keeps normal startup separate from migrations, seed steps, reset flows,
+  and admin creation
+
+## What still works when the live server is down
+
+Several admin commands are meant to keep working if the live Evennia runtime is
+stopped or wedged, as long as the game directory, settings, and database still
+load:
+
+- `accounts_list.sh`
+- `account_create.sh`
+- `account_set_password.sh`
+- `account_set_admin.sh`
+- `status_local.sh`
+- `backup_local.sh`
+- `restore_local.sh`
+
+That support does not cover arbitrary database corruption or lower-level
+environment repair.
 
 ## Compose parity notes
 
@@ -153,12 +187,10 @@ Phase 3 adds an opt-in local Docker Compose workflow for PostgreSQL parity.
   admin creation automatically
 - local backup, restore, and reset remain SQLite-local dev/test tools in this
   phase
-- PostgreSQL backup contract defaults now live in
-  `src/redmond_server/game/server/conf/_backup.py`
-- `REDMOND_BACKUP_DIR` may point the PostgreSQL repository root at local disk
-  or a mounted off-host path without changing the wrapper commands
-- `REDMOND_PGBACKREST_COMMAND` and `REDMOND_PGBACKREST_STANZA` are the only
-  supported PostgreSQL backup-surface overrides in this phase
+- `REDMOND_BACKUP_DIR`, `REDMOND_PGBACKREST_COMMAND`, and
+  `REDMOND_PGBACKREST_STANZA` are the PostgreSQL backup overrides supported in
+  this phase
 
 Contributor validation harnesses such as `test_fast.sh`, `test_full.sh`, and
-`test_compose.sh` are documented in `CONTRIBUTING.md` in this directory.
+`test_compose.sh` are documented in `../CONTRIBUTING.md` and
+`CONTRIBUTING.md` in this directory.

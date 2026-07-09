@@ -30,7 +30,9 @@ def backup_status(game_dir: Path) -> dict[str, object]:
         bool(entry["valid"]) for entry in persistent_files
     )
     persistent_paths_ready = all(
-        bool(entry["valid"]) and bool(entry["exists"]) and bool(entry["is_file"])
+        bool(entry["valid"]) and
+        bool(entry["exists"]) and
+        bool(entry["is_file"])
         for entry in persistent_files
     )
     inspection_eligible = bool(contract["postgresql_inspection_eligible"])

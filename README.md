@@ -1,59 +1,51 @@
 # redmond-mush
 
-`redmond-mush` is an MIT-licensed release tree for a MUSH-style roleplay server
-framework with a Shadowrun Sixth Edition-compatible default rules engine.
+`redmond-mush` is an MIT-licensed MUSH-style roleplay server built on Evennia
+with a Shadowrun Sixth Edition-compatible default rules approach.
 
-The project is intended to support:
+It is meant to grow into a persistent multiplayer text world with:
 
-- persistent multiplayer text-world play
 - telnet and MUD-client access
-- future web-based play surfaces
-- deterministic rules-oriented services
-- public-safe YAML-driven fixed data inputs
-- reusable server maintenance and operator tooling
+- future web-based play options
+- deterministic game and rules services
+- original, redistributable example data
+- practical server administration tooling
 
-## Repository role
-
-This repository contains the reusable open source server product.
-
-## Legal posture
+## Project boundaries
 
 This project is unofficial and noncommercial.
 
-It should not be used to redistribute official rulebook prose, fiction, logos,
-art, or substitute reference material. Public example data in this repository
-is intentionally limited and should remain original, terse, and operational.
+It is not a place to redistribute official rulebook prose, fiction, logos,
+art, or substitute reference material. Example data in this repository should
+stay original, compact, and useful for running the server.
 
 ## Current status
 
-This project is still in an early foundation stage.
+Redmond is still in an early foundation stage, but a local Milestone 1 server
+workflow is already in place.
 
-The current tree now includes a Milestone 1 local bootstrap for an
-Evennia-based server foundation:
+What works today:
 
-- committed game-dir style package subtree under `src/redmond_server/game`
-- SQLite-backed local development bootstrap
+- an Evennia game directory under `src/redmond_server/game`
+- SQLite-backed local setup by default
 - optional `REDMOND_DATABASE_URL` support for PostgreSQL-backed runtime
   configuration
-- an idempotent setup seed
+- an idempotent initial seed
 - baseline OOC room and channels
 - connection-screen legal notice plus `help legal`
 
-Gameplay systems such as chargen, dice, inventory, and scene tools are still
-future work.
+Still ahead:
 
-For repository workflow, validation, and contributor expectations, see
-`CONTRIBUTING.md`.
+- chargen
+- dice and wider rules systems
+- inventory
+- scene tools
+- PostgreSQL restore and cutover workflows
 
-For script-local contributor notes, including validation harness guidance, see
-`scripts/CONTRIBUTING.md`.
+If you want to contribute, start with `CONTRIBUTING.md`. If you want the
+script-by-script admin reference, see `scripts/README.md`.
 
-For detailed maintenance command behavior, see `scripts/README.md`.
-
-When editing player-facing MOTDs, room descriptions, help text, or other
-formatted output, see `docs/text-formatting.md`.
-
-## Local bootstrap
+## Quick local setup
 
 From the repository root:
 
@@ -72,7 +64,18 @@ Default local connection targets after `evennia start`:
 - telnet: `localhost:4000`
 - webclient: `http://localhost:4001`
 
-Helpful local operator commands:
+`init_local.sh`, `account_create.sh`, and `account_set_password.sh` ask for
+passwords interactively. In normal use, they do not accept passwords through
+shell arguments or environment variables. Automated tests may opt into
+stdin-fed password input with `REDMOND_TEST_PASSWORD_INPUT=1`, but that escape
+hatch is for test automation only.
+
+If setup or migration fails, run `./scripts/status_local.sh` before retrying
+so you can see the current database and runtime state.
+
+## Common admin commands
+
+These are the main day-to-day commands for a local server:
 
 ```sh
 ./scripts/reset_local.sh
@@ -85,72 +88,75 @@ Helpful local operator commands:
 ./scripts/account_set_admin.sh username true
 ```
 
-See `scripts/README.md` for the command-by-command reference.
+Use them this way:
 
-`init_local.sh`, `account_create.sh`, and `account_set_password.sh` read
-account passwords through a secure interactive prompt. They no longer accept
-account passwords as shell arguments or environment variables in ordinary use.
-Automated tests may opt into stdin-only password input with
-`REDMOND_TEST_PASSWORD_INPUT=1`.
-Direct password-bearing bootstrap CLI commands follow the same rule: they
-reject non-interactive stdin unless `REDMOND_TEST_PASSWORD_INPUT=1` is set.
-That escape hatch is for automated tests only; ordinary operator use should
-happen from an interactive terminal.
+- `reset_local.sh` rebuilds a local SQLite-backed instance from scratch and
+  also cleans up stale pidfiles or restart files left by a bad local shutdown.
+- `backup_local.sh` and `restore_local.sh` handle SQLite-local backup and
+  restore for ordinary dev/test use.
+- `status_local.sh` reports local bootstrap and runtime diagnostics.
+- the account scripts handle account creation, password resets, and local
+  admin-role changes without rebuilding the whole database
 
-`reset_local.sh` now also cleans up stale local Evennia pidfiles and
-game-dir-owned processes before rebuilding the SQLite state. If local bootstrap
-or migrate fails, run `./scripts/status_local.sh` to inspect the current
-database and runtime state before retrying.
+When the server is already running, the mutating account scripts reload the
+local Evennia process automatically so credential and admin-role changes take
+effect right away.
 
-Optional PostgreSQL configuration:
+For a detailed command guide, see `scripts/README.md`.
 
-- local bootstrap and tests still default to SQLite when
-  `REDMOND_DATABASE_URL` is unset
+## SQLite and PostgreSQL
+
+SQLite is still the default local workflow.
+
+- if `REDMOND_DATABASE_URL` is unset, local setup and tests stay on SQLite
 - set `REDMOND_DATABASE_URL` to a supported `postgres://` or
-  `postgresql://` URL to select PostgreSQL at settings load time
-- `./scripts/status_local.sh` now reports the active non-secret database
-  configuration metadata for either path
-- `./scripts/backup_local.sh`, `./scripts/restore_local.sh`, and
-  `./scripts/reset_local.sh` are SQLite-local dev/test helpers only and
-  refuse PostgreSQL-backed runs
-- PostgreSQL production backup and recovery remain future work, but the
-  read-only contract inspection surfaces now exist:
-  - `./scripts/backup_status.sh`
-  - `./scripts/backup_list.sh`
+  `postgresql://` URL to run against PostgreSQL
+- `./scripts/status_local.sh` reports the active non-secret database
+  configuration for either path
 
-Wrapper config surface:
+The local reset and SQLite-local backup helpers are intentionally limited:
 
-- bash wrappers under `scripts/` accept `-c` / `--config <path>`
-- explicit relative config paths resolve relative to the caller's current
-  working directory
-- when `--config` is omitted, wrappers look for `product/config/redmond.env`
-  relative to the script tree and load it only if it exists
+- `./scripts/reset_local.sh`
+- `./scripts/backup_local.sh`
+- `./scripts/restore_local.sh`
+
+Those commands are dev/test helpers for SQLite-backed runs only. They refuse
+PostgreSQL-backed configurations.
+
+For PostgreSQL-backed setups, the currently shipped backup commands are:
+
+- `./scripts/backup_status.sh`
+- `./scripts/backup_list.sh`
+- `./scripts/backup_create.sh`
+
+What that means today:
+
+- backup status and restore-point listing are available now
+- full backup creation is available now
+- PostgreSQL restore execution, cutover, pruning, and retention automation are
+  not implemented yet
+
+## Wrapper config
+
+The shell wrappers under `scripts/` accept `-c` / `--config <path>`.
+
+- explicit relative config paths resolve from the caller's current working
+  directory
+- when `--config` is omitted, wrappers look for
+  `product/config/redmond.env` relative to the script tree and load it only if
+  that file exists
 - the committed example file is `product/config/redmond.env.example`
-- the wrapper config is an env-style `KEY=value` file for values such as
-  `REDMOND_GAME_DIR`, `REDMOND_DATABASE_URL`,
-  `REDMOND_PGBACKREST_COMMAND`, and `REDMOND_PGBACKREST_STANZA`
-- path-like values loaded from the wrapper config resolve relative to the
-  config file location, not relative to `pwd`
+- wrapper config files use env-style `KEY=value` assignments
+- path-like values loaded from the config file resolve relative to the config
+  file location, not relative to `pwd`
 
-PostgreSQL backup contract:
+Typical values include:
 
-- `server/conf/_backup.py` is the authoritative backup contract module
-- default backup root is `server/backups`
-- PostgreSQL repository state is expected under
-  `server/backups/postgresql/repository`
-- Redmond metadata manifests are expected under
-  `server/backups/postgresql/manifests`
-- `REDMOND_BACKUP_DIR` may redirect that root to local disk or a mounted
-  off-host path without changing command semantics
-- `REDMOND_PGBACKREST_COMMAND` overrides the pgBackRest executable path
-- `REDMOND_PGBACKREST_STANZA` overrides the pgBackRest stanza name
-- the initial persistent non-database file manifest contains
-  `server/conf/secret_settings.py`
-- `backup_create.sh` is the first PostgreSQL mutation surface and always
-  requests a full backup through `pgbackrest backup`
-- `backup_status.sh` is always read-only and reports contract readiness
-- `backup_list.sh` is always read-only and lists PostgreSQL restore points
-  through `pgbackrest info`
+- `REDMOND_GAME_DIR`
+- `REDMOND_DATABASE_URL`
+- `REDMOND_BACKUP_DIR`
+- `REDMOND_PGBACKREST_COMMAND`
+- `REDMOND_PGBACKREST_STANZA`
 
 Cron-friendly example:
 
@@ -161,24 +167,25 @@ cp product/config/redmond.env.example product/config/redmond.env
 ```
 
 ```cron
-17 3 * * * /path/to/redmond/product/scripts/backup_create.sh >> /var/log/redmond-backup.log 2>&1
+17 3 * * * /path/to/redmond/product/scripts/backup_create.sh \
+  >> /var/log/redmond-backup.log 2>&1
 ```
 
-## Local Docker Compose PostgreSQL parity
+## Docker Compose local parity
 
-Docker Compose is an optional local parity workflow. The default contributor
-path remains virtualenv plus SQLite.
+Docker Compose is an optional local PostgreSQL parity workflow. The default
+contributor path is still virtualenv plus SQLite.
 
-Static configuration is the source of truth:
+Static configuration lives in:
 
 - `Dockerfile`
 - `compose.yaml`
 - `.dockerignore`
 - `compose.env.example`
 
-There is no template-rendering or config-generation step for Compose files.
+There is no template-rendering or config-generation step for these files.
 
-Compose setup:
+Set up the local Compose env file:
 
 ```sh
 cp compose.env.example compose.env
@@ -189,18 +196,15 @@ docker compose --env-file compose.env build
 The committed `compose.env.example` uses local-only example values. Edit
 `compose.env` before starting the stack.
 
-Compose env contract:
+Compose env rules:
 
 - `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` configure the
   PostgreSQL service itself
-- `REDMOND_DATABASE_URL` is the authoritative Redmond application database
-  URL
-- do not expect Compose to build the application URL from the PostgreSQL
-  component variables
-- URI-percent-encode the username, password, and database-name components
-  inside `REDMOND_DATABASE_URL` whenever URI rules require it
-- `compose.env.example` includes a complete local-only sample URL that matches
-  the example PostgreSQL service values
+- `REDMOND_DATABASE_URL` is the authoritative database URL used by Redmond
+- Compose does not build the application URL from the PostgreSQL component
+  variables
+- percent-encode username, password, and database-name components inside
+  `REDMOND_DATABASE_URL` whenever URI rules require it
 
 Start PostgreSQL only:
 
@@ -208,12 +212,7 @@ Start PostgreSQL only:
 docker compose --env-file compose.env up -d postgres
 ```
 
-The Redmond application service uses the committed `REDMOND_DATABASE_URL`
-value directly. For example passwords or names containing characters such as
-`@`, `:`, `/`, `#`, `%`, or spaces, percent-encode the relevant URL
-components before putting them in `compose.env`.
-
-Run explicit bootstrap steps against live PostgreSQL:
+Run the explicit bootstrap steps against live PostgreSQL:
 
 ```sh
 docker compose --env-file compose.env run --rm redmond \
@@ -237,7 +236,7 @@ docker compose --env-file compose.env run --rm redmond \
   --game-dir /opt/redmond/src/redmond_server/game
 ```
 
-Verify accounts or admin state when needed:
+Check account or admin state when needed:
 
 ```sh
 docker compose --env-file compose.env run --rm redmond \
@@ -260,7 +259,7 @@ Default local connection targets for the Compose stack:
 - telnet: `localhost:4000`
 - webclient: `http://localhost:4001`
 
-Diagnostics and restart:
+Useful diagnostics and restart commands:
 
 ```sh
 docker compose --env-file compose.env logs -f postgres redmond
@@ -283,25 +282,16 @@ Reset a disposable Compose environment and remove the named PostgreSQL volume:
 docker compose --env-file compose.env down -v --remove-orphans
 ```
 
-This Compose stack is generalized and reusable for future container workflows,
-but it is not OCI production deployment configuration.
+This stack is useful for local parity testing and future container work, but
+it is not production OCI deployment configuration.
 
-For local account recovery and staff administration, use the account scripts
-under `scripts/` instead of rebuilding the whole database when practical.
-When the local server is already running, the mutating account scripts reload
-the Evennia server automatically so credential and admin-role changes take
-effect without disconnecting clients.
+## What backup and recovery are supported right now
 
-## Emergency recovery contract
+For Milestone 1, a number of admin commands are meant to keep working even if
+the live Evennia runtime is down, as long as the game directory, settings, and
+database still load.
 
-The supported emergency recovery contract for Milestone 1 is `DB-up only`.
-
-This means the recovery commands below are intended to work when the live
-Evennia runtime is stopped, wedged, or otherwise unhealthy, as long as the
-game dir, settings, and database still load. This contract does not cover
-arbitrary database corruption or lower-level environment repair.
-
-Primary supported recovery surfaces:
+That includes:
 
 - `./scripts/accounts_list.sh`
 - `./scripts/account_create.sh`
@@ -311,98 +301,59 @@ Primary supported recovery surfaces:
 - `./scripts/backup_local.sh`
 - `./scripts/restore_local.sh path/to/archive.tar.gz`
 
-Read-only PostgreSQL backup contract inspection surfaces:
+What to expect from those commands:
 
-- `./scripts/backup_status.sh`
-- `./scripts/backup_list.sh`
+- account creation, password resets, and admin-role changes work through the
+  bootstrap CLI without requiring a healthy live server
+- automatic runtime reload after account changes is a convenience when the
+  server is already up, not part of the degraded-state guarantee
+- admin/staff channel sync after account changes is follow-up work and may be
+  deferred if runtime-only world access is unavailable
+- `status_local.sh` is meant to stay useful whenever bootstrap diagnostics can
+  still inspect the local tree
+- `restore_local.sh` restores the archive first, then attempts the Redmond
+  seed step as best-effort follow-up work
 
-Current dependency matrix, based on the implementation:
+SQLite-local backup and restore details:
 
-- `accounts_list.sh`
-  - bootstrap surface: `account-list`
-  - dependency level: Django DB load only
-  - recovery status: meets `DB-up only`
-- `account_set_password.sh`
-  - bootstrap surface: `account-set-password`
-  - dependency level: Django DB load only
-  - recovery status: meets `DB-up only`
-- `account_create.sh`
-  - bootstrap surface: `account-create`
-  - dependency level: Django DB load only for the primary account creation;
-    staff-channel sync is best-effort follow-up work
-  - recovery status: meets `DB-up only`
-- `account_set_admin.sh`
-  - bootstrap surface: `account-set-superuser`
-  - dependency level: Django DB load only for the primary role change;
-    staff-channel sync is best-effort follow-up work
-  - recovery status: meets `DB-up only`
-- `status_local.sh`
-  - bootstrap surface: `doctor`
-  - dependency level: filesystem first, then best-effort DB or Evennia
-    inspection
-  - recovery status: meets `DB-up only`
-- `backup_local.sh`
-  - bootstrap surface: `backup`
-  - dependency level: filesystem only for SQLite-local dev/test runs
-  - recovery status: meets `DB-up only`
-- `restore_local.sh`
-  - bootstrap surface: `restore`, `seed`
-  - dependency level: restore is filesystem-only SQLite-local recovery;
-    reseed is best-effort follow-up work
-  - recovery status: meets `DB-up only`
-- `backup_status.sh`
-  - bootstrap surface: `backup-status`
-  - dependency level: filesystem and config inspection only
-  - recovery status: read-only PostgreSQL contract inspection
-- `backup_list.sh`
-  - bootstrap surface: `backup-list`
-  - dependency level: config inspection plus read-only `pgbackrest info`
-  - recovery status: read-only PostgreSQL restore-point listing
-- `backup_create.sh`
-  - bootstrap surface: `backup-create`
-  - dependency level: validated persistent-file contract plus mutating
-    `pgbackrest backup`
-  - recovery status: first PostgreSQL backup-create mutation surface
+- backup creation requires both `server/evennia.db3` and
+  `server/conf/secret_settings.py`
+- restore validates the full archive before replacing live files
+- backup archives, backup directories, and restored `secret_settings.py`
+  return to owner-only permissions
+- these SQLite-local helpers remain dev/test tools, not the final production
+  recovery story
 
-Important notes:
+PostgreSQL backup support today:
 
-- Automatic runtime reload after account mutation is a live-server convenience,
-  not part of the recovery guarantee.
-- Channel membership sync for admin or superuser changes remains optional
-  follow-up work and is not part of the degraded-state success guarantee.
-- Restore may warn that reseed remains to be run later if world/bootstrap
-  dependencies are unavailable after archive extraction.
-- SQLite local backup creation requires both `server/evennia.db3` and
-  `server/conf/secret_settings.py`, and restore validates the full archive
-  before replacing live files.
-- The local backup archive directory is tightened to owner-only access, the
-  archive file is written owner-only, and restored `secret_settings.py`
-  returns to owner-only mode.
-- SQLite-local backup and restore remain dev/test helpers.
-- PostgreSQL backup creation is now available through `backup_create.sh`, but
-  PostgreSQL restore execution, cutover, prune, and retention automation
-  remain outside this current Milestone 1 recovery surface.
-- The PostgreSQL contract inspection path uses `server/conf/_backup.py` as
-  the authoritative default contract, with `REDMOND_BACKUP_DIR`,
-  `REDMOND_PGBACKREST_COMMAND`, and `REDMOND_PGBACKREST_STANZA` available as
-  deployment-specific overrides.
-- `backup_status.sh` and `backup_list.sh` remain read-only inspection
-  commands. They must not create backups, prune repositories, restore data,
-  or promote a new database.
-- `backup_create.sh` requires an existing pgBackRest repository directory and
-  existing persistent-file entries, creates a Redmond metadata snapshot under
-  the configured metadata dir, and does not initialize the repository or
-  stanza for the operator.
-- Shell wrappers now accept `--config PATH`, and the repo-relative default
-  wrapper config path is `product/config/redmond.env` when that file exists.
-- The bootstrap CLI remains the authoritative recovery entrypoint. The shell
-  scripts are operator-facing wrappers around that surface.
-- Account-password operator flows use secure interactive reads in ordinary
-  use. Only automated tests should enable `REDMOND_TEST_PASSWORD_INPUT=1`
-  and feed passwords on stdin.
+- `backup_status.sh` checks readiness and stays read-only
+- `backup_list.sh` lists PostgreSQL restore points through read-only
+  `pgbackrest info`
+- `backup_create.sh` creates a full PostgreSQL backup and writes a Redmond
+  metadata snapshot after success
+
+Still not shipped:
+
+- PostgreSQL restore execution
+- PostgreSQL cutover
+- repository pruning
+- retention automation
+
+The PostgreSQL backup defaults come from
+`src/redmond_server/game/server/conf/_backup.py`. The main deployment-specific
+overrides in this phase are `REDMOND_BACKUP_DIR`,
+`REDMOND_PGBACKREST_COMMAND`, and `REDMOND_PGBACKREST_STANZA`.
 
 ## Data policy
 
-The `data/` tree is reserved for public-safe example YAML, schemas, and future
-generator inputs. The full official-instance inventory of rules content does
-not ship here by default.
+The `data/` tree is reserved for redistributable example YAML, schemas, and
+future generator inputs. Full instance-specific rules inventories do not ship
+here by default.
+
+## Where to go next
+
+- `CONTRIBUTING.md` for contributor setup and validation
+- `scripts/README.md` for the detailed admin command guide
+- `scripts/CONTRIBUTING.md` for script and validation-harness contribution
+  notes
+- `docs/text-formatting.md` for player-facing text formatting guidance
