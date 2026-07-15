@@ -9,12 +9,16 @@ Rules:
 
 ## Unreleased
 
+- Strengthen the standalone public-repository contract across the README,
+  contributing docs, script docs, config comments, exported tests, and
+  repo-owned validation so `redmond-mush` reads and behaves like an
+  independent project from its own repository root.
 - Rewrite the public README, contributing guide, script docs, and related
-  support docs so the repository reads more naturally to first-time OSS
+  support docs so the repository reads more naturally to first-time
   operators and contributors.
 - Add a repo-relative `--config` surface for the bash maintenance wrappers,
   centralize config loading in `scripts/common.sh`, and document the
-  conventional `product/config/redmond.env` operator config path.
+  conventional `config/redmond.env` operator config path.
 - Add the first PostgreSQL backup-create operator surface with
   `backup_create.sh`, a `backup-create` bootstrap command, pgBackRest
   preflight guardrails, and Redmond-owned metadata snapshots for successful
@@ -31,7 +35,7 @@ Rules:
   and add Phase 2 parser and doctor coverage without requiring a live
   PostgreSQL container.
 - Document the PostgreSQL configuration path and the current SQLite-first
-  local workflow in the exported product README.
+  local workflow in the public README.
 - Harden the SQLite-local backup, restore, and reset helpers so they refuse
   PostgreSQL-backed runs, reject incomplete archives, preserve live files
   until archive validation succeeds, and tighten secret-bearing artifact
@@ -44,31 +48,30 @@ Rules:
   backup status and restore-point listing operator surfaces, and document the
   local-root plus mounted-storage override model without enabling PostgreSQL
   backup or restore execution yet.
-- Clarify the OSS product documentation split so `README.md` is operator-
-  facing, `CONTRIBUTING.md` is contributor-facing, and `scripts/README.md`
-  serves as the operator command reference.
-- Complete the OSS doc split by adding `product/scripts/CONTRIBUTING.md`,
+- Clarify the project documentation split so `README.md` is operator-facing,
+  `CONTRIBUTING.md` is contributor-facing, and `scripts/README.md` serves as
+  the operator command reference.
+- Complete that doc split by adding `scripts/CONTRIBUTING.md`,
   moving script and harness contributor guidance there, and restoring the
-  lost Compose validation setup and safety context to `product/CONTRIBUTING.md`.
+  lost Compose validation setup and safety context to `CONTRIBUTING.md`.
 
 ## v0.0.9 - 2026-06-25
 
 - Move the stylized Redmond banner system to the pre-login connection screen
   and load title cards from a random file-backed pool under the game-dir
   config tree.
-- Add a product-facing text-formatting guide plus README and contributing
-  pointers for native Evennia markup usage.
+- Add a project text-formatting guide plus README and contributing pointers
+  for native Evennia markup usage.
 - Import the 12 ASCII-safe Redmond title cards, preserve their telnet
   rendering with correct pipe escaping and backslash handling, and add focused
-  connection-screen tests plus Layer 2 export metadata for the new public
-  docs and assets.
+  connection-screen tests plus the matching public docs and assets.
 
 ## v0.0.6 - 2026-06-22
 
-- Preserve executable bits on the exported maintenance shell scripts so local
-  operator commands and test workflows remain runnable in fresh OSS clones.
-- Tighten the OSS export and parity checks so ignored runtime artifacts do not
-  pollute the public repo while exported files still match the product tree.
+- Preserve executable bits on the maintenance shell scripts so local operator
+  commands and test workflows remain runnable in fresh clones.
+- Tighten the public-tree parity checks so ignored runtime artifacts do not
+  pollute the repo while tracked public files still match the checked tree.
 
 ## v0.0.4 - 2026-06-20
 
@@ -81,4 +84,4 @@ Rules:
   staff-sync failure seam that still exercises the real bootstrap subprocess
   path.
 - Clarify contributor validation around `./scripts/test_fast.sh`,
-  `./scripts/test_full.sh`, and the downstream export/release workflow.
+  `./scripts/test_full.sh`, and the release workflow.

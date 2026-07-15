@@ -1,8 +1,8 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
-script_dir="$(cd "$(dirname "$0")" && pwd)"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 product_root="$(cd "$script_dir/.." && pwd)"
 compose_env="${REDMOND_COMPOSE_ENV_FILE:-$product_root/compose.env}"
 game_dir="/opt/redmond/src/redmond_server/game"
@@ -12,13 +12,13 @@ overlay_env="$overlay_dir/compose.validation.env"
 http_probe_error="$overlay_dir/http_probe_error.txt"
 
 if ! command -v docker >/dev/null 2>&1; then
-  echo "docker command not found." >&2
+  printf '%s\n' "docker command not found." >&2
   exit 1
 fi
 
-if [ ! -f "$compose_env" ]; then
-  echo "Compose env file not found: $compose_env" >&2
-  echo "Copy compose.env.example to compose.env first." >&2
+if [[ ! -f "$compose_env" ]]; then
+  printf '%s\n' "Compose env file not found: $compose_env" >&2
+  printf '%s\n' "Copy compose.env.example to compose.env first." >&2
   exit 1
 fi
 
@@ -42,7 +42,7 @@ compose() {
 
 wait_for_postgres() {
   attempts=30
-  while [ "$attempts" -gt 0 ]; do
+  while ((attempts > 0)); do
     if compose exec -T postgres \
       sh -lc 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
       >/dev/null 2>&1; then
@@ -52,7 +52,7 @@ wait_for_postgres() {
     sleep 2
   done
 
-  echo "PostgreSQL did not become healthy in time." >&2
+  printf '%s\n' "PostgreSQL did not become healthy in time." >&2
   return 1
 }
 
@@ -69,7 +69,7 @@ print_runtime_diagnostics() {
 }
 
 fail_post_start_check() {
-  echo "$1" >&2
+  printf '%s\n' "$1" >&2
   print_runtime_diagnostics
   return 1
 }
@@ -78,7 +78,7 @@ wait_for_http_ready() {
   attempts=30
   web_port="$(compose port redmond 4001 | awk -F: 'END {print $NF}')"
 
-  while [ "$attempts" -gt 0 ]; do
+  while ((attempts > 0)); do
     if REDMOND_WEB_PORT_PROBE="$web_port" python3 - <<'PY' >"$http_probe_error" 2>&1
 from __future__ import annotations
 
@@ -104,13 +104,13 @@ PY
     fi
 
     attempts=$((attempts - 1))
-    if [ "$attempts" -gt 0 ]; then
+    if ((attempts > 0)); then
       sleep 2
     fi
   done
 
   final_reason="HTTP readiness check timed out."
-  if [ -s "$http_probe_error" ]; then
+  if [[ -s "$http_probe_error" ]]; then
     final_reason="$final_reason Final failure: $(tail -n 1 "$http_probe_error")"
   fi
   rm -f "$http_probe_error"

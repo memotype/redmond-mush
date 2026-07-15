@@ -23,6 +23,7 @@ from redmond_server.game.server.conf import _database
 
 from tests.bootstrap_test_utils import (
     TEST_PASSWORD_INPUT_ENV as HELPER_TEST_PASSWORD_INPUT_ENV,
+    PRODUCT_ROOT,
     WRAPPER_DISABLE_DEFAULT_CONFIG_ENV,
     cleanup_process,
     create_game_dir,
@@ -114,7 +115,7 @@ class BootstrapFastTest(unittest.TestCase):
 
         subprocess.run(
             ["./scripts/init_local.sh"],
-            cwd="/home/isaac/dev/redmond/product",
+            cwd=PRODUCT_ROOT,
             env=env,
             check=True,
             text=True,
@@ -134,7 +135,7 @@ class BootstrapFastTest(unittest.TestCase):
                 "--game-dir",
                 str(game_dir),
             ],
-            cwd="/home/isaac/dev/redmond/product",
+            cwd=PRODUCT_ROOT,
             env=env,
             check=False,
             text=True,
@@ -424,7 +425,7 @@ class BootstrapFastTest(unittest.TestCase):
 
         result = subprocess.run(
             ["./scripts/status_local.sh"],
-            cwd="/home/isaac/dev/redmond/product",
+            cwd=PRODUCT_ROOT,
             env=env,
             check=True,
             text=True,

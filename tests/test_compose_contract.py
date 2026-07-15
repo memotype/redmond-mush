@@ -202,7 +202,7 @@ class ComposeContractTest(unittest.TestCase):
 
     def test_compose_helper_shell_syntax_is_valid(self) -> None:
         subprocess.run(
-            ["sh", "-n", str(TEST_COMPOSE_SCRIPT_PATH)],
+            ["bash", "-n", str(TEST_COMPOSE_SCRIPT_PATH)],
             check=True,
             cwd=PRODUCT_ROOT,
             text=True,

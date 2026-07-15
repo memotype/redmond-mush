@@ -17,11 +17,11 @@ EOF
 redmond_init "$@"
 set -- "${redmond_wrapper_args[@]}"
 
-if [ "$redmond_show_help" -eq 1 ]; then
+if ((redmond_show_help == 1)); then
   print_usage
   exit 0
 fi
-if [ "$#" -ne 1 ]; then
+if (($# != 1)); then
   redmond_usage_error "Usage: $0 [options] <backup-archive>"
 fi
 
@@ -33,9 +33,11 @@ stop_evennia_runtime
 run_bootstrap restore --archive "$archive_path"
 
 if ! run_bootstrap seed >/dev/null; then
-  echo "Restore completed, but reseed was deferred." >&2
-  echo "Run ./scripts/status_local.sh and retry ./scripts/init_local.sh or" >&2
-  echo "./scripts/reset_local.sh once the runtime is healthy again." >&2
+  printf '%s\n' "Restore completed, but reseed was deferred." >&2
+  printf '%s\n' \
+    "Run ./scripts/status_local.sh and retry ./scripts/init_local.sh or" >&2
+  printf '%s\n' \
+    "./scripts/reset_local.sh once the runtime is healthy again." >&2
 fi
 
-echo "Restored backup: $archive_path"
+printf '%s\n' "Restored backup: $archive_path"

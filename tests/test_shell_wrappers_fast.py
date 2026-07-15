@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from tests.bootstrap_test_utils import (
+    PRODUCT_ROOT,
     TEST_PASSWORD_INPUT_ENV,
     WRAPPER_DISABLE_DEFAULT_CONFIG_ENV,
     create_game_dir,
@@ -44,7 +45,7 @@ class ShellWrappersFastTest(unittest.TestCase):
 
         subprocess.run(
             ["./scripts/init_local.sh"],
-            cwd="/home/isaac/dev/redmond/product",
+            cwd=PRODUCT_ROOT,
             env=env,
             check=True,
             text=True,
@@ -57,7 +58,7 @@ class ShellWrappersFastTest(unittest.TestCase):
                 "-lc",
                 "printf 'alice-pass\\n' | ./scripts/account_create.sh alice",
             ],
-            cwd="/home/isaac/dev/redmond/product",
+            cwd=PRODUCT_ROOT,
             env=env,
             check=True,
             text=True,
@@ -93,11 +94,11 @@ class ShellWrappersFastTest(unittest.TestCase):
                 "bash",
                 "-lc",
                 (
-                    "source product/scripts/common.sh && "
+                    "source scripts/common.sh && "
                     "redmond_init && runtime_markers_present"
                 ),
             ],
-            cwd="/home/isaac/dev/redmond",
+            cwd=PRODUCT_ROOT,
             env=env,
             check=False,
             text=True,
@@ -110,3 +111,33 @@ class ShellWrappersFastTest(unittest.TestCase):
             f"{game_dir}",
             log_lines,
         )
+
+    def test_common_shell_config_error_returns_without_exiting_caller(
+        self,
+    ) -> None:
+        missing_path = Path(tempfile.mkdtemp(prefix="redmond-missing-config-"))
+        config_path = missing_path / "missing.env"
+        env = os.environ.copy()
+        env["PYTHONPATH"] = PYTHONPATH_DIR
+
+        result = subprocess.run(
+            [
+                "bash",
+                "-lc",
+                (
+                    "source scripts/common.sh && "
+                    f"redmond_init --config {str(config_path)!r}; "
+                    'status="$?"; '
+                    'printf "status=%s\\n" "$status"'
+                ),
+            ],
+            cwd=PRODUCT_ROOT,
+            env=env,
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), "status=1")
+        self.assertIn("Config file not found", result.stderr)

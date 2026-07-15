@@ -21,8 +21,9 @@ stay original, compact, and useful for running the server.
 
 ## Current status
 
-Redmond is still in an early foundation stage, but a local Milestone 1 server
-workflow is already in place.
+Redmond is still in an early foundation stage, but the repository already
+ships a working local server bootstrap path, baseline admin tooling, and an
+optional PostgreSQL parity workflow.
 
 What works today:
 
@@ -142,10 +143,9 @@ The shell wrappers under `scripts/` accept `-c` / `--config <path>`.
 
 - explicit relative config paths resolve from the caller's current working
   directory
-- when `--config` is omitted, wrappers look for
-  `product/config/redmond.env` relative to the script tree and load it only if
-  that file exists
-- the committed example file is `product/config/redmond.env.example`
+- when `--config` is omitted, wrappers look for `config/redmond.env` relative
+  to the script tree and load it only if that file exists
+- the committed example file is `config/redmond.env.example`
 - wrapper config files use env-style `KEY=value` assignments
 - path-like values loaded from the config file resolve relative to the config
   file location, not relative to `pwd`
@@ -161,13 +161,13 @@ Typical values include:
 Cron-friendly example:
 
 ```sh
-cp product/config/redmond.env.example product/config/redmond.env
-./product/scripts/backup_status.sh
-./product/scripts/backup_create.sh
+cp config/redmond.env.example config/redmond.env
+./scripts/backup_status.sh
+./scripts/backup_create.sh
 ```
 
 ```cron
-17 3 * * * /path/to/redmond/product/scripts/backup_create.sh \
+17 3 * * * /path/to/redmond/scripts/backup_create.sh \
   >> /var/log/redmond-backup.log 2>&1
 ```
 
@@ -287,9 +287,9 @@ it is not production OCI deployment configuration.
 
 ## What backup and recovery are supported right now
 
-For Milestone 1, a number of admin commands are meant to keep working even if
-the live Evennia runtime is down, as long as the game directory, settings, and
-database still load.
+A number of admin commands are meant to keep working even if the live Evennia
+runtime is down, as long as the game directory, settings, and database still
+load.
 
 That includes:
 
@@ -307,8 +307,8 @@ What to expect from those commands:
   bootstrap CLI without requiring a healthy live server
 - automatic runtime reload after account changes is a convenience when the
   server is already up, not part of the degraded-state guarantee
-- admin/staff channel sync after account changes is follow-up work and may be
-  deferred if runtime-only world access is unavailable
+- admin or staff channel sync after account changes is follow-up work and may
+  be deferred if runtime-only world access is unavailable
 - `status_local.sh` is meant to stay useful whenever bootstrap diagnostics can
   still inspect the local tree
 - `restore_local.sh` restores the archive first, then attempts the Redmond

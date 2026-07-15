@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
-
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 product_root="$(cd "$script_dir/.." && pwd)"
 default_wrapper_config="$product_root/config/redmond.env"
@@ -20,8 +18,8 @@ redmond_wrapper_args=()
 redmond_wrapper_common_args=()
 
 redmond_fail() {
-  echo "$*" >&2
-  exit 1
+  printf '%s\n' "$*" >&2
+  return 1
 }
 
 redmond_trim_whitespace() {
@@ -58,16 +56,17 @@ EOF
 redmond_usage_error() {
   local usage="$1"
   {
-    echo "$usage"
-    echo
+    printf '%s\n' "$usage"
+    printf '\n'
     redmond_print_common_options
   } >&2
-  exit 1
+  return 1
 }
 
 redmond_config_usage_error() {
   local option_name="$1"
   redmond_fail "$option_name requires a config path."
+  return 1
 }
 
 redmond_resolve_path_from_pwd() {
@@ -88,9 +87,11 @@ redmond_load_config_file() {
 
   if [ ! -e "$config_path" ]; then
     redmond_fail "Config file not found: $config_path"
+    return 1
   fi
   if [ ! -r "$config_path" ]; then
     redmond_fail "Config file is not readable: $config_path"
+    return 1
   fi
   config_dir="${config_path%/*}"
 
@@ -110,13 +111,14 @@ redmond_load_config_file() {
       redmond_fail \
         "Invalid config line $line_number in $config_path. " \
         "Use KEY=value assignments only."
+      return 1
     fi
 
     key="${trimmed%%=*}"
     value="${trimmed#*=}"
     value="$(redmond_strip_optional_quotes "$value")"
     printf -v "$key" '%s' "$value"
-    export "$key"
+    export "$key=$value"
   done <"$config_path"
 
   redmond_resolve_config_path_var REDMOND_GAME_DIR "$config_dir"
@@ -138,7 +140,7 @@ redmond_resolve_config_path_var() {
     return 0
   fi
   printf -v "$variable_name" '%s' "$base_dir/$variable_value"
-  export "$variable_name"
+  export "$variable_name=${!variable_name}"
 }
 
 redmond_resolve_config_command_var() {
@@ -155,7 +157,7 @@ redmond_resolve_config_command_var() {
     return 0
   fi
   printf -v "$variable_name" '%s' "$base_dir/$variable_value"
-  export "$variable_name"
+  export "$variable_name=${!variable_name}"
 }
 
 redmond_init() {
@@ -215,13 +217,13 @@ redmond_init() {
       "--config"
       "$redmond_wrapper_config_path"
     )
-    redmond_load_config_file "$redmond_wrapper_config_path"
+    redmond_load_config_file "$redmond_wrapper_config_path" || return 1
   elif \
     [ -z "${REDMOND_WRAPPER_DISABLE_DEFAULT_CONFIG:-}" ] && \
     [ -f "$default_wrapper_config" ]
   then
     redmond_wrapper_config_path="$default_wrapper_config"
-    redmond_load_config_file "$redmond_wrapper_config_path"
+    redmond_load_config_file "$redmond_wrapper_config_path" || return 1
   fi
 
   game_dir="${REDMOND_GAME_DIR:-$default_game_dir}"
@@ -233,8 +235,9 @@ redmond_init() {
 
 ensure_evennia() {
   if ! command -v evennia >/dev/null 2>&1; then
-    echo "evennia command not found. Activate the project virtualenv first." >&2
-    exit 1
+    printf '%s\n' \
+      "evennia command not found. Activate the project virtualenv first." >&2
+    return 1
   fi
 }
 
@@ -248,8 +251,9 @@ bootstrap_python_cmd() {
     return 0
   fi
 
-  echo "python or python3 command not found. Activate the project virtualenv first." >&2
-  exit 1
+  printf '%s\n' \
+    "python or python3 command not found. Activate the project virtualenv first." >&2
+  return 1
 }
 
 run_bootstrap() {
@@ -426,7 +430,7 @@ reload_evennia_runtime_if_running() {
   fi
 
   (
-    cd "$game_dir"
+    cd "$game_dir" || return 1
     timeout "${reload_timeout_seconds}s" evennia reload >/dev/null 2>&1
   )
 }
@@ -437,7 +441,7 @@ stop_evennia_runtime() {
 
   if runtime_markers_present; then
     (
-      cd "$game_dir"
+      cd "$game_dir" || return 1
       timeout "${stop_timeout_seconds}s" evennia stop >/dev/null 2>&1 || true
     )
   fi

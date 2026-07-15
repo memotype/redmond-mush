@@ -38,7 +38,7 @@ pip install -e ".[dev]"
 
 ### Basic checks
 
-Run these for ordinary product changes:
+Run these for ordinary project changes:
 
 ```sh
 ruff check .
@@ -52,7 +52,7 @@ Use the split harnesses this way:
 
 - `./scripts/test_fast.sh` for edit-time feedback during ordinary work
 - `./scripts/test_full.sh` before opening a PR or finalizing a
-  release-visible change that touches `product/`
+  release-visible change
 
 ### Compose-only checks
 
@@ -88,18 +88,13 @@ guidance, see `scripts/CONTRIBUTING.md`.
 ## Release-visible changes
 
 If your change materially affects behavior, public docs, packaging metadata,
-tests, maintenance scripts, or exported assets under `product/`, update
-`product/CHANGELOG.md` in the same changeset when the change is meant to be
+tests, maintenance scripts, or tracked public assets in this repository,
+update `CHANGELOG.md` in the same changeset when the change is meant to be
 visible in a release.
 
 Before opening a PR for that kind of work:
 
-- review `product/CHANGELOG.md`
+- review `CHANGELOG.md`
 - make sure the matching entry is in the same changeset
 - make sure behavior-changing edits include matching validation coverage or a
   clear justification
-
-## Maintainer note
-
-Accepted public changes may later be reconciled through the maintainers'
-upstream release workflow before they appear in a published release.

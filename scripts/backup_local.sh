@@ -17,11 +17,11 @@ EOF
 redmond_init "$@"
 set -- "${redmond_wrapper_args[@]}"
 
-if [ "$redmond_show_help" -eq 1 ]; then
+if ((redmond_show_help == 1)); then
   print_usage
   exit 0
 fi
-if [ "$#" -ne 0 ]; then
+if (($# != 0)); then
   redmond_usage_error "Usage: $0 [options]"
 fi
 
@@ -31,4 +31,4 @@ ensure_evennia
 require_sqlite_local_recovery
 
 archive_path="$(run_bootstrap backup --backup-dir "$backup_dir")"
-echo "Created backup: $archive_path"
+printf '%s\n' "Created backup: $archive_path"

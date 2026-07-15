@@ -12,9 +12,9 @@ this directory.
 Most wrappers that source `common.sh` accept `-c` / `--config <path>`.
 
 - explicit relative config paths resolve from the caller's current directory
-- when `--config` is omitted, wrappers load `product/config/redmond.env`
-  relative to the script tree only if that file exists
-- `product/config/redmond.env.example` is the committed starting point
+- when `--config` is omitted, wrappers load `config/redmond.env` relative to
+  the script tree only if that file exists
+- `config/redmond.env.example` is the committed starting point
 - wrapper config files use env-style `KEY=value` assignments only
 - path-like values from wrapper config files resolve relative to the config
   file location
@@ -109,8 +109,8 @@ These commands are read-only:
 - `backup_list.sh`
   - lists PostgreSQL restore points through read-only `pgbackrest info`
 
-They are safe inspection tools. They do not create backups, prune repositories,
-restore data, or promote a replacement database.
+They are safe inspection tools. They do not create backups, prune
+repositories, restore data, or promote a replacement database.
 
 ## Create a PostgreSQL backup
 
@@ -149,9 +149,9 @@ It is intentionally narrow:
 
 ## What still works when the live server is down
 
-Several admin commands are meant to keep working if the live Evennia runtime is
-stopped or wedged, as long as the game directory, settings, and database still
-load:
+Several admin commands are meant to keep working if the live Evennia runtime
+is stopped or wedged, as long as the game directory, settings, and database
+still load:
 
 - `accounts_list.sh`
 - `account_create.sh`
@@ -168,7 +168,7 @@ environment repair.
 
 Phase 3 adds an opt-in local Docker Compose workflow for PostgreSQL parity.
 
-- static files are the source of truth:
+- static configuration lives in:
   - `Dockerfile`
   - `compose.yaml`
   - `.dockerignore`

@@ -17,11 +17,11 @@ EOF
 redmond_init "$@"
 set -- "${redmond_wrapper_args[@]}"
 
-if [ "$redmond_show_help" -eq 1 ]; then
+if ((redmond_show_help == 1)); then
   print_usage
   exit 0
 fi
-if [ "$#" -ne 1 ]; then
+if (($# != 1)); then
   redmond_usage_error "Usage: $0 [options] <username>"
 fi
 

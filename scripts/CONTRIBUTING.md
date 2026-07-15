@@ -1,6 +1,6 @@
 # Contributing To Scripts
 
-This file covers the maintenance scripts under `product/scripts/`.
+This file covers the maintenance scripts in `scripts/`.
 
 For the operator-facing command guide, see `README.md` in this directory. For
 broader contributor workflow, validation, and changelog expectations, see
@@ -34,7 +34,7 @@ Contributor validation harnesses:
 
 - Use `./test_fast.sh` for ordinary edit-time feedback.
 - Use `./test_full.sh` before opening a PR or finalizing a release-visible
-  change that touches `product/`.
+  change.
 - Use `./test_compose.sh` when the change affects:
   - Docker Compose parity behavior
   - PostgreSQL wiring

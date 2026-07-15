@@ -17,22 +17,22 @@ EOF
 redmond_init "$@"
 set -- "${redmond_wrapper_args[@]}"
 
-if [ "$redmond_show_help" -eq 1 ]; then
+if ((redmond_show_help == 1)); then
   print_usage
   exit 0
 fi
-if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+if (($# < 1)) || (($# > 3)); then
   redmond_usage_error "Usage: $0 [options] <username> [email] [--superuser]"
 fi
 
 username="$1"
 email=""
-superuser_flag=""
+superuser_args=()
 
-if [ "$#" -ge 2 ]; then
+if (($# >= 2)); then
   case "$2" in
     --superuser)
-      superuser_flag="--superuser"
+      superuser_args=("--superuser")
       ;;
     *)
       email="$2"
@@ -40,17 +40,17 @@ if [ "$#" -ge 2 ]; then
   esac
 fi
 
-if [ "$#" -eq 3 ]; then
-  if [ "$3" != "--superuser" ]; then
+if (($# == 3)); then
+  if [[ "$3" != "--superuser" ]]; then
     redmond_usage_error \
       "Usage: $0 [options] <username> [email] [--superuser]"
   fi
-  superuser_flag="--superuser"
+  superuser_args=("--superuser")
 fi
 
 ensure_evennia
 run_bootstrap account-create \
   --username "$username" \
   --email "$email" \
-  $superuser_flag
+  "${superuser_args[@]}"
 reload_evennia_runtime_if_running
