@@ -9,6 +9,8 @@ Rules:
 
 ## Unreleased
 
+## v0.1.1 - 2026-07-15
+
 - Strengthen the standalone public-repository contract across the README,
   contributing docs, script docs, config comments, exported tests, and
   repo-owned validation so `redmond-mush` reads and behaves like an
