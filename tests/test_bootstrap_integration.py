@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import tarfile
+from typing import cast
 import unittest
 
 from redmond_server import bootstrap
@@ -390,7 +391,8 @@ class BootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(database["database_name"], "redmond")
         self.assertIsNone(database["sqlite_path"])
         self.assertIn("database_error", doctor)
-        self.assertNotIn("secret", doctor["database_error"])
+        database_error = cast(str, doctor["database_error"])
+        self.assertNotIn("secret", database_error)
 
     def test_backup_status_wrapper_passes_through_bootstrap_json(self) -> None:
         game_dir = create_game_dir()

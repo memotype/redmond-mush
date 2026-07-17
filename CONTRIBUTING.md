@@ -54,6 +54,33 @@ Use the split harnesses this way:
 - `./scripts/test_full.sh` before opening a PR or finalizing a
   release-visible change
 
+### GitHub Actions CI
+
+GitHub Actions CI for ordinary pull requests stays intentionally boring.
+
+- expect a fast first-pass Linux workflow on standard GitHub-hosted runners
+- expect that workflow to stay secretless and least-privilege
+- expect CI to cover the same baseline contributor checks used for routine
+  local validation rather than a separate CI-only command path
+
+The first CI lane runs:
+
+```sh
+pip install -e ".[dev]"
+ruff check .
+mypy src tests
+./scripts/test_fast.sh
+```
+
+Do not treat the first green CI check as full project validation.
+
+- `./scripts/test_full.sh` remains the pre-PR and maintainer validation
+  boundary for release-visible changes
+- `./scripts/test_compose.sh` remains opt-in for changes that touch Compose,
+  PostgreSQL wiring, container startup, or related docs and scripts
+- the initial GitHub Actions workflow is intentionally conservative to fit
+  public OSS free-runner expectations
+
 ### Compose-only checks
 
 `./scripts/test_compose.sh` is opt-in. Use it when the change affects:

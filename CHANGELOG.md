@@ -9,6 +9,15 @@ Rules:
 
 ## Unreleased
 
+## v0.1.2 - 2026-07-17
+
+- Add the first public GitHub Actions CI workflow with one Linux-only,
+  least-privilege, secretless validation lane that installs the package,
+  runs `ruff`, runs `mypy`, and executes `./scripts/test_fast.sh`.
+- Update the contributor guide to document the shipped first CI lane and
+  clarify that `./scripts/test_full.sh` and `./scripts/test_compose.sh`
+  remain outside the initial GitHub Actions gate.
+
 ## v0.1.1 - 2026-07-15
 
 - Strengthen the standalone public-repository contract across the README,

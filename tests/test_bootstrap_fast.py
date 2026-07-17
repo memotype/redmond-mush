@@ -8,6 +8,7 @@ import stat
 import subprocess
 import tarfile
 import tempfile
+from typing import Any, cast
 import unittest
 from unittest import mock
 
@@ -408,12 +409,14 @@ class BootstrapFastTest(unittest.TestCase):
         )
 
         self.assertIsNone(doctor["db_exists"])
-        self.assertEqual(doctor["database"]["engine"], "postgresql")
-        self.assertEqual(doctor["database"]["source"], "env_url")
-        self.assertEqual(doctor["database"]["host"], "127.0.0.1")
-        self.assertEqual(doctor["database"]["port"], 1)
-        self.assertEqual(doctor["database"]["database_name"], "redmond")
-        self.assertNotIn("super-secret", doctor["database_error"])
+        database = cast(dict[str, Any], doctor["database"])
+        self.assertEqual(database["engine"], "postgresql")
+        self.assertEqual(database["source"], "env_url")
+        self.assertEqual(database["host"], "127.0.0.1")
+        self.assertEqual(database["port"], 1)
+        self.assertEqual(database["database_name"], "redmond")
+        database_error = cast(str, doctor["database_error"])
+        self.assertNotIn("super-secret", database_error)
 
     def test_status_local_reports_doctor_json_without_evennia_cli(self) -> None:
         game_dir = create_game_dir()

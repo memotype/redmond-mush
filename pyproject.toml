@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redmond-mush"
-version = "0.1.1"
+version = "0.1.2"
 description = "MIT-licensed MUSH server framework for roleplay servers."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -27,3 +27,17 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 redmond_server = ["game/server/conf/title_cards/*.txt"]
+
+[tool.mypy]
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = [
+  "django.*",
+  "evennia.*",
+  "commands.*",
+  "server.*",
+  "typeclasses.*",
+  "world.*",
+]
+ignore_missing_imports = true

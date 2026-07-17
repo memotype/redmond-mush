@@ -257,7 +257,7 @@ def dump_state(game_dir: Path) -> dict[str, Any]:
 def diagnostic_state(game_dir: Path) -> dict[str, Any]:
     """Collect local diagnostics without assuming a healthy database state."""
     database = _database_metadata(game_dir)
-    diagnostics = {
+    diagnostics: dict[str, Any] = {
         "database": database,
         "db_exists": _database_file_exists(database),
         "runtime": runtime_state(game_dir),
