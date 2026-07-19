@@ -9,6 +9,11 @@ Rules:
 
 ## Unreleased
 
+## v0.1.3 - 2026-07-17
+
+- Correct the public package metadata version in `pyproject.toml` so the
+  shipped package version matches the local `v0.1.3` release boundary.
+
 ## v0.1.2 - 2026-07-17
 
 - Add the first public GitHub Actions CI workflow with one Linux-only,
