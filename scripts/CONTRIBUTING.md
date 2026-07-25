@@ -32,6 +32,9 @@ Contributor validation harnesses:
 
 ## Choosing a validation harness
 
+- Activate the project virtualenv before running these harnesses. They
+  consume the active Python and Evennia toolchain from `PATH`; they do not
+  provision it for you.
 - Use `./test_fast.sh` for ordinary edit-time feedback.
 - Use `./test_full.sh` before opening a PR or finalizing a release-visible
   change.

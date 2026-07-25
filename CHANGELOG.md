@@ -9,6 +9,29 @@ Rules:
 
 ## Unreleased
 
+## v0.1.5 - 2026-07-25
+
+- Add the first persistent character-sheet slice with approved-sheet storage,
+  skill rows, exact Essence handling, self-view `+sheet` and
+  `+sheet/backstory` commands, and explicit bootstrap helpers for sample data.
+- Add the first chargen foundation with versioned rules profiles, draft
+  sessions, one-active-session enforcement, `+chargen` help,
+  `+chargen/status`, and a bootstrap helper that creates a draft session
+  through the product service path.
+- Harden sheet and chargen persistence seams with shared backstory
+  normalization, structured bootstrap refusals and operator errors, and
+  clean-install checks for invalid direct writes.
+- Reconcile the validation contract around the active project virtualenv and
+  harden wrapper-oriented tests so subprocesses inherit the intended Python
+  and Evennia toolchain.
+
+## v0.1.4 - 2026-07-22
+
+- Finalize the planned character-sheet and chargen architecture docs,
+  including chargen-owned draft backstories, permanent approved backstories,
+  shared normalization and validation rules, and the reviewed approval
+  finalization contract.
+
 ## v0.1.3 - 2026-07-17
 
 - Correct the public package metadata version in `pyproject.toml` so the

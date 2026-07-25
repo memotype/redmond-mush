@@ -33,6 +33,7 @@ from tests.bootstrap_test_utils import (
     load_runtime_state,
     PYTHON_BIN,
     PYTHONPATH_DIR,
+    with_active_python_path,
 )
 
 
@@ -106,7 +107,7 @@ class BootstrapFastTest(unittest.TestCase):
 
     def test_cli_rejects_non_tty_stdin_without_test_mode(self) -> None:
         game_dir = create_game_dir()
-        env = os.environ.copy()
+        env = with_active_python_path()
         env["PYTHONPATH"] = PYTHONPATH_DIR
         env["REDMOND_GAME_DIR"] = str(game_dir)
         env["EVENNIA_SUPERUSER_USERNAME"] = "admin"
@@ -421,7 +422,7 @@ class BootstrapFastTest(unittest.TestCase):
     def test_status_local_reports_doctor_json_without_evennia_cli(self) -> None:
         game_dir = create_game_dir()
         bootstrap.ensure_secret_settings(game_dir)
-        env = os.environ.copy()
+        env = with_active_python_path()
         env["PYTHONPATH"] = PYTHONPATH_DIR
         env["REDMOND_GAME_DIR"] = str(game_dir)
         env[WRAPPER_DISABLE_DEFAULT_CONFIG_ENV] = "1"

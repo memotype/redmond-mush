@@ -249,6 +249,231 @@ class BootstrapIntegrationTest(unittest.TestCase):
         second = load_state(game_dir)
         self.assertEqual(first, second)
 
+    def test_sheet_create_sample_bootstrap_command(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+
+        run_command(
+            [
+                PYTHON_BIN,
+                "-c",
+                (
+                    "from pathlib import Path; "
+                    "from redmond_server.bootstrap._env import "
+                    "configure_django; "
+                    "configure_django(Path(r'"
+                    + str(game_dir)
+                    + "'), load_evennia=True); "
+                    "import evennia; "
+                    "from django.conf import settings; "
+                    "room = evennia.search_object('#2')[0]; "
+                    "evennia.create_object("
+                    "typeclass=settings.BASE_CHARACTER_TYPECLASS, "
+                    "key='SampleChar', location=room, home=room)"
+                ),
+            ],
+            cwd=PRODUCT_ROOT,
+            env={"PYTHONPATH": PYTHONPATH_DIR},
+        )
+
+        result = json.loads(
+            run_command(
+                [
+                    PYTHON_BIN,
+                    "-m",
+                    "redmond_server.bootstrap",
+                    "sheet-create-sample",
+                    "--character",
+                    "SampleChar",
+                    "--allow-dev-sample-data",
+                    "--game-dir",
+                    str(game_dir),
+                ],
+                cwd=PRODUCT_ROOT,
+                env={"PYTHONPATH": PYTHONPATH_DIR},
+            ).stdout
+        )
+
+        self.assertEqual(result["character_key"], "SampleChar")
+        self.assertEqual(result["skill_count"], 2)
+        self.assertEqual(result["status"], "created")
+
+    def test_sheet_create_sample_requires_explicit_opt_in(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        result = subprocess.run(
+            [
+                PYTHON_BIN,
+                "-m",
+                "redmond_server.bootstrap",
+                "sheet-create-sample",
+                "--character",
+                "SampleChar",
+                "--game-dir",
+                str(game_dir),
+            ],
+            cwd=PRODUCT_ROOT,
+            env=self.merged_env({"PYTHONPATH": PYTHONPATH_DIR}),
+            check=False,
+            text=True,
+            capture_output=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "refused")
+        self.assertIn("allow-dev-sample-data", payload["message"])
+
+    def test_sheet_create_sample_repeat_is_stable_and_non_mutating(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+        run_command(
+            [
+                PYTHON_BIN,
+                "-c",
+                (
+                    "from pathlib import Path; "
+                    "from redmond_server.bootstrap._env import "
+                    "configure_django; "
+                    "configure_django(Path(r'"
+                    + str(game_dir)
+                    + "'), load_evennia=True); "
+                    "import evennia; "
+                    "from django.conf import settings; "
+                    "room = evennia.search_object('#2')[0]; "
+                    "evennia.create_object("
+                    "typeclass=settings.BASE_CHARACTER_TYPECLASS, "
+                    "key='SampleChar', location=room, home=room)"
+                ),
+            ],
+            cwd=PRODUCT_ROOT,
+            env={"PYTHONPATH": PYTHONPATH_DIR},
+        )
+
+        create_args = [
+            PYTHON_BIN,
+            "-m",
+            "redmond_server.bootstrap",
+            "sheet-create-sample",
+            "--character",
+            "SampleChar",
+            "--allow-dev-sample-data",
+            "--game-dir",
+            str(game_dir),
+        ]
+        first = json.loads(
+            run_command(
+                create_args,
+                cwd=PRODUCT_ROOT,
+                env={"PYTHONPATH": PYTHONPATH_DIR},
+            ).stdout
+        )
+        second = json.loads(
+            run_command(
+                create_args,
+                cwd=PRODUCT_ROOT,
+                env={"PYTHONPATH": PYTHONPATH_DIR},
+            ).stdout
+        )
+        sheet_state = json.loads(
+            run_command(
+                [
+                    PYTHON_BIN,
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        "import json; "
+                        "from redmond_server.bootstrap._env import "
+                        "configure_django; "
+                        "configure_django(Path(r'"
+                        + str(game_dir)
+                        + "'), load_evennia=True); "
+                        "from sheets.models import CharacterSheet; "
+                        "sheet = CharacterSheet.objects.get("
+                        "character__db_key='SampleChar'); "
+                        "print(json.dumps({"
+                        "'sheet_id': sheet.id, "
+                        "'alias': sheet.alias, "
+                        "'skill_count': sheet.skills.count()"
+                        "}))"
+                    ),
+                ],
+                cwd=PRODUCT_ROOT,
+                env={"PYTHONPATH": PYTHONPATH_DIR},
+            ).stdout
+        )
+
+        self.assertEqual(first["status"], "created")
+        self.assertEqual(second["status"], "exists")
+        self.assertEqual(first["sheet_id"], second["sheet_id"])
+        self.assertEqual(sheet_state["sheet_id"], first["sheet_id"])
+        self.assertEqual(sheet_state["alias"], "Sample Runner")
+        self.assertEqual(sheet_state["skill_count"], 2)
+
+    def test_normal_bootstrap_flows_do_not_create_sample_sheet_implicitly(self) -> None:
+        game_dir = create_game_dir()
+        env = build_env(game_dir)
+        run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env={
+                **env,
+                TEST_PASSWORD_INPUT_ENV: "1",
+            },
+            input_text="pass123\n",
+        )
+
+        result = json.loads(
+            run_command(
+                [
+                    PYTHON_BIN,
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        "import json; "
+                        "from redmond_server.bootstrap._env import "
+                        "configure_django; "
+                        "configure_django(Path(r'"
+                        + str(game_dir)
+                        + "'), load_evennia=True); "
+                        "from sheets.models import CharacterSheet; "
+                        "print(json.dumps({"
+                        "'sheet_count': CharacterSheet.objects.count()"
+                        "}))"
+                    ),
+                ],
+                cwd=PRODUCT_ROOT,
+                env={"PYTHONPATH": PYTHONPATH_DIR},
+            ).stdout
+        )
+        self.assertEqual(result["sheet_count"], 0)
+
     def test_reset_local_recreates_clean_state(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)

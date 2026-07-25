@@ -15,10 +15,33 @@ PRODUCT_ROOT = Path(__file__).resolve().parents[1]
 GAME_SOURCE = PRODUCT_ROOT / "src" / "redmond_server" / "game"
 PYTHONPATH_DIR = str(PRODUCT_ROOT / "src")
 PYTHON_BIN = sys.executable
+PYTHON_BIN_DIR = str(Path(sys.executable).resolve().parent)
 TEST_PASSWORD_INPUT_ENV = "REDMOND_TEST_PASSWORD_INPUT"
 WRAPPER_DISABLE_DEFAULT_CONFIG_ENV = (
     "REDMOND_WRAPPER_DISABLE_DEFAULT_CONFIG"
 )
+
+
+def with_active_python_path(
+    env: dict[str, str] | None = None,
+) -> dict[str, str]:
+    full_env = os.environ.copy()
+    if env:
+        full_env.update(env)
+
+    current_path = full_env.get("PATH", "")
+    path_entries = (
+        current_path.split(os.pathsep) if current_path != "" else []
+    )
+    if not path_entries or path_entries[0] != PYTHON_BIN_DIR:
+        if current_path == "":
+            full_env["PATH"] = PYTHON_BIN_DIR
+        else:
+            full_env["PATH"] = (
+                f"{PYTHON_BIN_DIR}{os.pathsep}{current_path}"
+            )
+
+    return full_env
 
 
 def run_command(
@@ -28,13 +51,10 @@ def run_command(
     env: dict[str, str] | None = None,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    full_env = os.environ.copy()
-    if env:
-        full_env.update(env)
     return subprocess.run(
         args,
         cwd=cwd,
-        env=full_env,
+        env=with_active_python_path(env),
         check=True,
         text=True,
         input=input_text,
@@ -43,13 +63,15 @@ def run_command(
 
 
 def build_env(game_dir: Path) -> dict[str, str]:
-    return {
-        "EVENNIA_SUPERUSER_EMAIL": "admin@example.com",
-        "EVENNIA_SUPERUSER_USERNAME": "admin",
-        "PYTHONPATH": PYTHONPATH_DIR,
-        "REDMOND_GAME_DIR": str(game_dir),
-        WRAPPER_DISABLE_DEFAULT_CONFIG_ENV: "1",
-    }
+    return with_active_python_path(
+        {
+            "EVENNIA_SUPERUSER_EMAIL": "admin@example.com",
+            "EVENNIA_SUPERUSER_USERNAME": "admin",
+            "PYTHONPATH": PYTHONPATH_DIR,
+            "REDMOND_GAME_DIR": str(game_dir),
+            WRAPPER_DISABLE_DEFAULT_CONFIG_ENV: "1",
+        }
+    )
 
 
 def load_state(game_dir: Path) -> dict[str, object]:

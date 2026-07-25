@@ -3,7 +3,9 @@
 
 from evennia import default_cmds
 
+from commands.chargen import CmdChargen
 from commands.prompt import CmdPrompt
+from commands.sheet import CmdSheet
 
 
 class CharacterCmdSet(default_cmds.CharacterCmdSet):
@@ -14,7 +16,9 @@ class CharacterCmdSet(default_cmds.CharacterCmdSet):
     def at_cmdset_creation(self) -> None:
         """Populate the default character command set."""
         super().at_cmdset_creation()
+        self.add(CmdChargen())
         self.add(CmdPrompt())
+        self.add(CmdSheet())
 
 
 class AccountCmdSet(default_cmds.AccountCmdSet):

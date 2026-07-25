@@ -10,6 +10,7 @@ from ._accounts import (
     set_account_superuser,
     verify_account_password,
 )
+from ._chargen import create_sample_chargen_session
 from ._backup import (
     create_backup,
     create_postgresql_backup,
@@ -20,6 +21,7 @@ from ._backup_contract import backup_list, backup_status
 from ._cli import build_parser, main, print_json
 from ._env import configure_django, ensure_secret_settings, game_dir_arg
 from ._runtime import reserve_local_ports, runtime_state
+from ._sheets import create_sample_sheet
 from ._types import AccountState, BootstrapState
 from ._world import (
     current_state,
@@ -40,7 +42,9 @@ __all__ = [
     "current_state",
     "create_account",
     "create_backup",
+    "create_sample_chargen_session",
     "create_postgresql_backup",
+    "create_sample_sheet",
     "diagnostic_state",
     "dump_state",
     "ensure_secret_settings",

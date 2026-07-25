@@ -14,6 +14,7 @@ from tests.bootstrap_test_utils import (
     create_game_dir,
     PYTHON_BIN,
     PYTHONPATH_DIR,
+    with_active_python_path,
 )
 
 
@@ -33,7 +34,7 @@ class ShellWrappersFastTest(unittest.TestCase):
         pidfile = game_dir / "server" / "server.pid"
         pidfile.write_text(f"{os.getpid()}\n", encoding="ascii")
 
-        env = os.environ.copy()
+        env = with_active_python_path()
         env["PATH"] = f"{fake_bin}:{env['PATH']}"
         env["PYTHONPATH"] = PYTHONPATH_DIR
         env["REDMOND_FAKE_EVENNIA_LOG"] = str(log_path)
@@ -83,7 +84,7 @@ class ShellWrappersFastTest(unittest.TestCase):
         )
         python_path.chmod(0o755)
 
-        env = os.environ.copy()
+        env = with_active_python_path()
         env["PATH"] = f"{fake_bin}:{env['PATH']}"
         env["PYTHONPATH"] = PYTHONPATH_DIR
         env["REDMOND_FAKE_PYTHON_LOG"] = str(log_path)
@@ -117,7 +118,7 @@ class ShellWrappersFastTest(unittest.TestCase):
     ) -> None:
         missing_path = Path(tempfile.mkdtemp(prefix="redmond-missing-config-"))
         config_path = missing_path / "missing.env"
-        env = os.environ.copy()
+        env = with_active_python_path()
         env["PYTHONPATH"] = PYTHONPATH_DIR
 
         result = subprocess.run(

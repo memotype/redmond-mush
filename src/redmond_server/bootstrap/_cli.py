@@ -17,6 +17,7 @@ from ._accounts import (
     set_account_superuser,
     verify_account_password,
 )
+from ._chargen import create_sample_chargen_session
 from ._backup import (
     create_backup,
     create_postgresql_backup,
@@ -26,6 +27,7 @@ from ._backup import (
 from ._backup_contract import backup_list, backup_status
 from ._env import ensure_secret_settings, game_dir_arg
 from ._passwords import read_password
+from ._sheets import create_sample_sheet
 from ._world import (
     current_state,
     diagnostic_state,
@@ -45,6 +47,14 @@ def collect_quietly(callback, *args):
     """Run a bootstrap collector while suppressing incidental stdout noise."""
     with contextlib.redirect_stdout(io.StringIO()):
         return callback(*args)
+
+
+def _sample_command_exit_code(payload: dict[str, Any]) -> int:
+    """Return the process exit code for opt-in sample-data commands."""
+    status = str(payload.get("status", ""))
+    if status in ("created", "exists"):
+        return 0
+    return 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -132,6 +142,26 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("backup-status", parents=[common_parser])
     subparsers.add_parser("backup-list", parents=[common_parser])
     subparsers.add_parser("backup-create", parents=[common_parser])
+    sheet_sample_parser = subparsers.add_parser(
+        "sheet-create-sample",
+        parents=[common_parser],
+    )
+    sheet_sample_parser.add_argument("--character", required=True)
+    sheet_sample_parser.add_argument(
+        "--allow-dev-sample-data",
+        action="store_true",
+    )
+    chargen_sample_parser = subparsers.add_parser(
+        "chargen-create-sample",
+        parents=[common_parser],
+    )
+    chargen_sample_parser.add_argument("--character", required=True)
+    chargen_sample_parser.add_argument("--profile-key")
+    chargen_sample_parser.add_argument("--version", type=int)
+    chargen_sample_parser.add_argument(
+        "--allow-dev-sample-data",
+        action="store_true",
+    )
 
     backup_parser = subparsers.add_parser(
         "backup",
@@ -309,6 +339,26 @@ def main() -> int:
     if args.command == "backup-create":
         print_json(create_postgresql_backup(args.game_dir))
         return 0
+
+    if args.command == "sheet-create-sample":
+        payload = create_sample_sheet(
+            game_dir=args.game_dir,
+            character_name=args.character,
+            allow_dev_sample_data=args.allow_dev_sample_data,
+        )
+        print_json(payload)
+        return _sample_command_exit_code(payload)
+
+    if args.command == "chargen-create-sample":
+        payload = create_sample_chargen_session(
+            game_dir=args.game_dir,
+            character_name=args.character,
+            allow_dev_sample_data=args.allow_dev_sample_data,
+            profile_key=args.profile_key,
+            version=args.version,
+        )
+        print_json(payload)
+        return _sample_command_exit_code(payload)
 
     if args.command == "migrate":
         run_migrations(args.game_dir)

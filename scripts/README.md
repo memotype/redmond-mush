@@ -7,6 +7,11 @@ If you are contributing code or docs, start with `../CONTRIBUTING.md`. If you
 are looking for script-specific contributor guidance, see `CONTRIBUTING.md` in
 this directory.
 
+When running these wrappers or the contributor validation harnesses, activate
+the project virtualenv first. The wrappers consume the active Python and
+Evennia toolchain from `PATH`; they do not provision that environment for
+you.
+
 ## Shared wrapper config
 
 Most wrappers that source `common.sh` accept `-c` / `--config <path>`.
@@ -193,4 +198,5 @@ Phase 3 adds an opt-in local Docker Compose workflow for PostgreSQL parity.
 
 Contributor validation harnesses such as `test_fast.sh`, `test_full.sh`, and
 `test_compose.sh` are documented in `../CONTRIBUTING.md` and
-`CONTRIBUTING.md` in this directory.
+`CONTRIBUTING.md` in this directory. Run them from the same active
+virtualenv used for the rest of the product contributor workflow.

@@ -24,3 +24,8 @@ apply_runtime_env_overrides(globals())
 
 
 DATABASES = build_database_settings()
+
+INSTALLED_APPS += (  # noqa: F405
+    "sheets.apps.SheetsConfig",
+    "chargen.apps.ChargenConfig",
+)

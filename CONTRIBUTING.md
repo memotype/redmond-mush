@@ -54,6 +54,10 @@ Use the split harnesses this way:
 - `./scripts/test_full.sh` before opening a PR or finalizing a
   release-visible change
 
+Run those harnesses from the same active `.venv` created in Local setup.
+They consume the active Python and Evennia toolchain from `PATH`; they do not
+provision that environment for you.
+
 ### GitHub Actions CI
 
 GitHub Actions CI for ordinary pull requests stays intentionally boring.
@@ -71,6 +75,10 @@ ruff check .
 mypy src tests
 ./scripts/test_fast.sh
 ```
+
+That CI lane already runs inside its prepared job environment. Match it
+locally by keeping the project virtualenv active before running the split
+harnesses.
 
 Do not treat the first green CI check as full project validation.
 

@@ -17,12 +17,13 @@ from tests.bootstrap_test_utils import (
     create_game_dir,
     load_accounts,
     run_command,
+    with_active_python_path,
 )
 
 
 class WrapperConfigIntegrationTest(unittest.TestCase):
     def merged_env(self, extra: dict[str, str]) -> dict[str, str]:
-        return {**os.environ, **extra}
+        return with_active_python_path(extra)
 
     def write_wrapper_config(
         self,

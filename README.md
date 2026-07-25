@@ -71,6 +71,11 @@ shell arguments or environment variables. Automated tests may opt into
 stdin-fed password input with `REDMOND_TEST_PASSWORD_INPUT=1`, but that escape
 hatch is for test automation only.
 
+Keep that same active virtualenv for `./scripts/init_local.sh`,
+`./scripts/status_local.sh`, and the contributor validation harnesses. The
+wrappers consume the active Python and Evennia toolchain from `PATH`; they do
+not provision it for you.
+
 If setup or migration fails, run `./scripts/status_local.sh` before retrying
 so you can see the current database and runtime state.
 
