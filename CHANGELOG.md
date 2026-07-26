@@ -24,6 +24,8 @@ Rules:
 - Reconcile the validation contract around the active project virtualenv and
   harden wrapper-oriented tests so subprocesses inherit the intended Python
   and Evennia toolchain.
+- Pin the public CI `ruff` and `mypy` versions to the current local toolchain
+  so the downstream validation contract stays reproducible.
 
 ## v0.1.4 - 2026-07-22
 
