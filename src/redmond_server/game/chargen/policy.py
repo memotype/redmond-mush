@@ -5,10 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-try:
-    from shared_backstory import backstory_has_content
-except ImportError:  # pragma: no cover - package import fallback
-    from redmond_server.game.shared_backstory import backstory_has_content
+from shared_backstory import backstory_has_content
 
 
 PROFILE_KEY_MAX_LENGTH = 80

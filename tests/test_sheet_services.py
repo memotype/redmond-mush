@@ -19,7 +19,10 @@ ORIGINAL_CWD = Path.cwd()
 configure_django(GAME_DIR, load_evennia=True)
 os.chdir(ORIGINAL_CWD)
 
-from django.db import IntegrityError, transaction  # type: ignore[import-untyped]
+from django.db import (  # type: ignore[import-untyped]
+    IntegrityError,
+    transaction,
+)
 from evennia.utils.test_resources import EvenniaCommandTest
 
 from sheets.models import CharacterSheet, CharacterSkill
@@ -121,12 +124,16 @@ class SheetServiceTest(EvenniaCommandTest):
             with self.subTest(raw_value=raw_value):
                 with self.assertRaises(SheetValidationError) as raised:
                     create_approved_sheet(
-                        self._make_input(body=raw_value)  # type: ignore[arg-type]
+                        self._make_input(
+                            body=raw_value  # type: ignore[arg-type]
+                        )
                     )
                 self.assertEqual(raised.exception.issues[0].field, "body")
                 self.assertEqual(raised.exception.issues[0].code, expected_code)
 
-    def test_invalid_skill_rating_failures_return_structured_issues(self) -> None:
+    def test_invalid_skill_rating_failures_return_structured_issues(
+        self,
+    ) -> None:
         for raw_value, expected_code in (
             (0, "too_small"),
             (-1, "too_small"),

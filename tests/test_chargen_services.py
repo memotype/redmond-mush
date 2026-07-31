@@ -20,7 +20,10 @@ configure_django(GAME_DIR, load_evennia=True)
 os.chdir(ORIGINAL_CWD)
 run_migrations(GAME_DIR)
 
-from django.db import IntegrityError, transaction  # type: ignore[import-untyped]
+from django.db import (  # type: ignore[import-untyped]
+    IntegrityError,
+    transaction,
+)
 from evennia.utils.test_resources import EvenniaCommandTest
 
 from chargen.models import ChargenRulesProfile, ChargenSession
@@ -145,7 +148,9 @@ class ChargenServiceTest(EvenniaCommandTest):
         ChargenSession.objects.create(
             character=self.char1,
             status=ChargenSessionStatus.ABANDONED,
-            rules_profile=ChargenRulesProfile.objects.get(pk=profile.profile_id),
+            rules_profile=ChargenRulesProfile.objects.get(
+                pk=profile.profile_id
+            ),
             starting_karma_snapshot=50,
             backstory="",
         )
@@ -185,7 +190,9 @@ class ChargenServiceTest(EvenniaCommandTest):
         ChargenSession.objects.create(
             character=self.char1,
             status=ChargenSessionStatus.SUPERSEDED,
-            rules_profile=ChargenRulesProfile.objects.get(pk=profile.profile_id),
+            rules_profile=ChargenRulesProfile.objects.get(
+                pk=profile.profile_id
+            ),
             starting_karma_snapshot=50,
             backstory="",
         )

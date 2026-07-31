@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redmond-mush"
-version = "0.1.5"
+version = "0.1.7"
 description = "MIT-licensed MUSH server framework for roleplay servers."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,10 +33,15 @@ python_version = "3.12"
 
 [[tool.mypy.overrides]]
 module = [
+  "chargen",
+  "chargen.*",
   "django.*",
   "evennia.*",
   "commands.*",
   "server.*",
+  "shared_backstory",
+  "sheets",
+  "sheets.*",
   "typeclasses.*",
   "world.*",
 ]

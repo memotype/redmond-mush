@@ -9,6 +9,15 @@ Rules:
 
 ## Unreleased
 
+## v0.1.7 - 2026-07-31
+
+- Restore the downstream typing baseline by making the chargen, sheet, and
+  shared-backstory import surfaces `mypy`-safe without changing the runtime
+  Django app import model.
+- Add the missing backup integration test module to the public test suite and
+  keep the exported runtime, bootstrap, and typing validation surfaces green
+  together.
+
 ## v0.1.5 - 2026-07-25
 
 - Add the first persistent character-sheet slice with approved-sheet storage,

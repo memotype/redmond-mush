@@ -89,7 +89,9 @@ class SheetPolicyTest(unittest.TestCase):
         self.assertEqual(value, Decimal("5.13"))
         self.assertEqual(issues, [])
 
-    def test_validate_essence_value_rejects_negative_or_non_finite(self) -> None:
+    def test_validate_essence_value_rejects_negative_or_non_finite(
+        self,
+    ) -> None:
         for raw_value, expected_code in (
             ("-0.01", "too_small"),
             ("NaN", "non_finite"),

@@ -37,8 +37,8 @@ def create_sample_chargen_session(
 
     configure_django(game_dir, load_evennia=True)
 
-    from chargen.models import ChargenSession  # type: ignore[import-not-found]
-    from chargen.services import (  # type: ignore[import-not-found]
+    from chargen.models import ChargenSession
+    from chargen.services import (
         ActiveChargenSessionExistsError,
         ChargenProfileNotFoundError,
         ChargenProfileUnavailableError,

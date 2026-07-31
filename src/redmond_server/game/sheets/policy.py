@@ -6,16 +6,10 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
 
-try:
-    from shared_backstory import (
-        backstory_has_content,
-        normalize_backstory as _normalize_backstory,
-    )
-except ImportError:  # pragma: no cover - package import fallback
-    from redmond_server.game.shared_backstory import (
-        backstory_has_content,
-        normalize_backstory as _normalize_backstory,
-    )
+from shared_backstory import (
+    backstory_has_content,
+    normalize_backstory as _normalize_backstory,
+)
 
 
 APPROVED_BACKSTORY_MAX_CHARS = 4000

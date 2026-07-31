@@ -31,8 +31,8 @@ def create_sample_sheet(
 
     configure_django(game_dir, load_evennia=True)
 
-    from sheets.models import CharacterSheet  # type: ignore[import-not-found]
-    from sheets.services import (  # type: ignore[import-not-found]
+    from sheets.models import CharacterSheet
+    from sheets.services import (
         ApprovedSheetCreateInput,
         ApprovedSkillInput,
         SheetAlreadyExistsError,
