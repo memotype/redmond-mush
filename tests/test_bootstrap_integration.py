@@ -14,6 +14,7 @@ from tests.bootstrap_test_utils import (
     build_env,
     cleanup_process,
     create_game_dir,
+    create_initialized_game_dir,
     load_accounts,
     load_doctor,
     load_state,
@@ -31,17 +32,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_account_mutations_succeed_when_staff_sync_is_deferred(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         fault_env = {
             "PYTHONPATH": PYTHONPATH_DIR,
             "REDMOND_TEST_FAIL_STAFF_SYNC": "1",
@@ -112,17 +103,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
         self.assertFalse(alice["is_staff"])
 
     def test_account_management_flow(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         run_command(
             [
@@ -214,18 +195,29 @@ class BootstrapIntegrationTest(unittest.TestCase):
         self.assertGreaterEqual(require_int(state, "account_count"), 1)
         self.assertGreaterEqual(require_int(state, "object_count"), 2)
 
-    def test_seed_is_idempotent(self) -> None:
+    def test_init_local_rerun_skips_existing_superuser_prompt(self) -> None:
         game_dir = create_game_dir()
-        env = build_env(game_dir)
+        env = {
+            **build_env(game_dir),
+            TEST_PASSWORD_INPUT_ENV: "1",
+        }
         run_command(
             ["./scripts/init_local.sh"],
             cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
+            env=env,
             input_text="pass123\n",
         )
+
+        rerun = run_command(
+            ["./scripts/init_local.sh"],
+            cwd=PRODUCT_ROOT,
+            env=build_env(game_dir),
+        )
+
+        self.assertIn("Redmond local bootstrap complete.", rerun.stdout)
+
+    def test_seed_is_idempotent(self) -> None:
+        game_dir = create_initialized_game_dir()
 
         first = load_state(game_dir)
         run_command(
@@ -244,17 +236,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(first, second)
 
     def test_sheet_create_sample_bootstrap_command(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         run_command(
             [
@@ -302,17 +284,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(result["status"], "created")
 
     def test_sheet_create_sample_requires_explicit_opt_in(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         result = subprocess.run(
             [
                 PYTHON_BIN,
@@ -338,17 +310,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_sheet_create_sample_repeat_is_stable_and_non_mutating(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         run_command(
             [
                 PYTHON_BIN,
@@ -435,17 +397,7 @@ class BootstrapIntegrationTest(unittest.TestCase):
     def test_normal_bootstrap_flows_do_not_create_sample_sheet_implicitly(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         result = json.loads(
             run_command(
@@ -472,49 +424,29 @@ class BootstrapIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(result["sheet_count"], 0)
 
-    def test_reset_local_recreates_clean_state(self) -> None:
-        game_dir = create_game_dir()
+    def test_reset_local_recreates_state_and_cleans_runtime(self) -> None:
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         overwrite_room_name(game_dir, "Broken Room")
 
-        run_command(
-            ["./scripts/reset_local.sh"],
+        proc = subprocess.Popen(
+            [
+                "bash",
+                "-lc",
+                f'exec -a "{game_dir}/server/server.pid" sleep 300',
+            ],
             cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
+            text=True,
         )
-
-        state = load_state(game_dir)
-        self.assertEqual(state["ooc_room_key"], "Redmond OOC Hub")
-        self.assertEqual(state["legal_help_count"], 1)
-
-    def test_reset_local_cleans_stale_pidfiles(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
+        self.addCleanup(cleanup_process, proc)
+        (game_dir / "server" / "server.pid").write_text(
+            f"{proc.pid}\n",
+            encoding="ascii",
         )
-
-        pidfile = game_dir / "server" / "server.pid"
-        pidfile.write_text("999999\n", encoding="ascii")
+        (game_dir / "server" / "portal.pid").write_text(
+            "999999\n",
+            encoding="ascii",
+        )
         (game_dir / "server" / "server.restart").write_text(
             "",
             encoding="ascii",
@@ -530,70 +462,29 @@ class BootstrapIntegrationTest(unittest.TestCase):
             input_text="pass123\n",
         )
 
-        doctor = load_doctor(game_dir)
-        runtime = doctor["runtime"]
-        assert isinstance(runtime, dict)
-        self.assertEqual(runtime["stale_pidfile_count"], 0)
-        pidfiles = runtime["pidfiles"]
-        assert isinstance(pidfiles, dict)
-        server_pidfile = pidfiles["server.pid"]
-        assert isinstance(server_pidfile, dict)
-        self.assertFalse(server_pidfile["exists"])
-
-    def test_reset_local_stops_pidfile_processes(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
-
-        proc = subprocess.Popen(
-            [
-                "bash",
-                "-lc",
-                f'exec -a "{game_dir}/server/server.pid" sleep 300',
-            ],
-            cwd=PRODUCT_ROOT,
-            text=True,
-        )
-        self.addCleanup(cleanup_process, proc)
-        pidfile = game_dir / "server" / "server.pid"
-        pidfile.write_text(f"{proc.pid}\n", encoding="ascii")
-
-        run_command(
-            ["./scripts/reset_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
-
         self.assertIsNotNone(proc.poll())
+        state = load_state(game_dir)
+        self.assertEqual(state["ooc_room_key"], "Redmond OOC Hub")
+        self.assertEqual(state["legal_help_count"], 1)
+
         doctor = load_doctor(game_dir)
         runtime = doctor["runtime"]
         assert isinstance(runtime, dict)
         self.assertEqual(runtime["running_process_count"], 0)
+        self.assertEqual(runtime["stale_pidfile_count"], 0)
+        self.assertFalse(runtime["runtime_marker_present"])
+        pidfiles = runtime["pidfiles"]
+        assert isinstance(pidfiles, dict)
+        for name in ("server.pid", "portal.pid"):
+            pidfile = pidfiles[name]
+            assert isinstance(pidfile, dict)
+            self.assertFalse(pidfile["exists"])
+        flags = runtime["restart_or_stop_flags"]
+        assert isinstance(flags, dict)
+        self.assertFalse(flags["server.restart"])
 
     def test_doctor_command_reports_postgres_configuration(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         doctor = load_doctor(
             game_dir,

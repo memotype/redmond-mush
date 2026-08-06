@@ -31,19 +31,28 @@ from chargen.models import ChargenSessionStatus
 from chargen.queries import get_chargen_status
 from chargen.services import (
     ActiveChargenSessionExistsError,
+    ActiveChargenSessionNotFoundError,
     ChargenProfileImmutableError,
     ChargenProfileUnavailableError,
     ChargenSessionConflictError,
     ChargenValidationError,
     CreateChargenSessionInput,
     DefaultChargenProfileNotConfiguredError,
+    EditChargenAttributeInput,
     EnsureChargenRulesProfileInput,
+    UnknownDraftAttributeError,
     create_chargen_session,
+    edit_chargen_attribute,
     ensure_chargen_rules_profile,
 )
 
 
 class ChargenServiceTest(EvenniaCommandTest):
+    def setUp(self) -> None:
+        super().setUp()
+        ChargenSession.objects.all().delete()
+        ChargenRulesProfile.objects.all().delete()
+
     def _profile_input(
         self,
         **overrides,
@@ -174,7 +183,9 @@ class ChargenServiceTest(EvenniaCommandTest):
         ):
             with self.assertRaises(ChargenSessionConflictError):
                 create_chargen_session(self._session_input())
-        self.assertFalse(ChargenSession.objects.exists())
+        self.assertFalse(
+            ChargenSession.objects.filter(character=self.char1).exists()
+        )
 
     def test_status_query_returns_active_draft_session(self) -> None:
         ensure_chargen_rules_profile(self._profile_input())
@@ -183,6 +194,7 @@ class ChargenServiceTest(EvenniaCommandTest):
         assert status is not None
         self.assertEqual(status.profile_key, "redmond_standard")
         self.assertEqual(status.starting_karma, 50)
+        self.assertEqual(status.completion_state, "Incomplete")
         self.assertEqual(status.backstory_state, "Required")
 
     def test_status_query_ignores_only_historical_sessions(self) -> None:
@@ -207,9 +219,11 @@ class ChargenServiceTest(EvenniaCommandTest):
 
     def test_character_delete_cascades_sessions(self) -> None:
         ensure_chargen_rules_profile(self._profile_input())
-        create_chargen_session(self._session_input())
+        created = create_chargen_session(self._session_input())
         self.char1.delete()
-        self.assertFalse(ChargenSession.objects.exists())
+        self.assertFalse(
+            ChargenSession.objects.filter(pk=created.session_id).exists()
+        )
 
     def test_incomplete_profile_identity_is_rejected(self) -> None:
         ensure_chargen_rules_profile(self._profile_input())
@@ -239,3 +253,108 @@ class ChargenServiceTest(EvenniaCommandTest):
                     starting_karma_snapshot=50,
                     backstory="",
                 )
+
+    def test_edit_chargen_attribute_persists_value(self) -> None:
+        ensure_chargen_rules_profile(self._profile_input())
+        created = create_chargen_session(self._session_input())
+        result = edit_chargen_attribute(
+            EditChargenAttributeInput(
+                character=self.char1,
+                attribute_name="body",
+                value=8,
+            )
+        )
+        session = ChargenSession.objects.get(pk=created.session_id)
+        self.assertEqual(result.session_id, created.session_id)
+        self.assertEqual(result.attribute_id, "body")
+        self.assertEqual(result.value, 8)
+        self.assertEqual(session.body, 8)
+
+    def test_edit_chargen_attribute_accepts_aliases(self) -> None:
+        ensure_chargen_rules_profile(self._profile_input())
+        create_chargen_session(self._session_input())
+        result = edit_chargen_attribute(
+            EditChargenAttributeInput(
+                character=self.char1,
+                attribute_name="bod",
+                value=7,
+            )
+        )
+        session = ChargenSession.objects.get(character=self.char1)
+        self.assertEqual(result.attribute_id, "body")
+        self.assertEqual(session.body, 7)
+
+    def test_edit_chargen_attribute_overwrites_existing_value(self) -> None:
+        ensure_chargen_rules_profile(self._profile_input())
+        create_chargen_session(self._session_input())
+        edit_chargen_attribute(
+            EditChargenAttributeInput(
+                character=self.char1,
+                attribute_name="logic",
+                value=4,
+            )
+        )
+        edit_chargen_attribute(
+            EditChargenAttributeInput(
+                character=self.char1,
+                attribute_name="logic",
+                value=6,
+            )
+        )
+        session = ChargenSession.objects.get(character=self.char1)
+        self.assertEqual(session.logic, 6)
+
+    def test_edit_chargen_attribute_requires_active_session(self) -> None:
+        with self.assertRaises(ActiveChargenSessionNotFoundError):
+            edit_chargen_attribute(
+                EditChargenAttributeInput(
+                    character=self.char1,
+                    attribute_name="body",
+                    value=8,
+                )
+            )
+
+    def test_edit_chargen_attribute_rejects_unknown_attribute(self) -> None:
+        ensure_chargen_rules_profile(self._profile_input())
+        create_chargen_session(self._session_input())
+        with self.assertRaises(UnknownDraftAttributeError):
+            edit_chargen_attribute(
+                EditChargenAttributeInput(
+                    character=self.char1,
+                    attribute_name="luck",
+                    value=8,
+                )
+            )
+
+    def test_edit_chargen_attribute_rejects_invalid_value(self) -> None:
+        ensure_chargen_rules_profile(self._profile_input())
+        create_chargen_session(self._session_input())
+        with self.assertRaises(ChargenValidationError):
+            edit_chargen_attribute(
+                EditChargenAttributeInput(
+                    character=self.char1,
+                    attribute_name="body",
+                    value=100,
+                )
+            )
+
+    def test_status_query_reports_complete_when_all_attributes_are_set(
+        self,
+    ) -> None:
+        ensure_chargen_rules_profile(self._profile_input())
+        create_chargen_session(self._session_input())
+        session = ChargenSession.objects.get(character=self.char1)
+        session.body = 1
+        session.agility = 2
+        session.reaction = 3
+        session.strength = 4
+        session.willpower = 5
+        session.logic = 6
+        session.intuition = 7
+        session.charisma = 8
+        session.edge = 2
+        session.save()
+        status = get_chargen_status(self.char1)
+        assert status is not None
+        self.assertEqual(status.completion_state, "Complete")
+        self.assertEqual(status.missing_attribute_ids, ())

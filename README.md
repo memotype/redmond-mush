@@ -64,6 +64,11 @@ Default local connection targets after `evennia start`:
 
 - telnet: `localhost:4000`
 - webclient: `http://localhost:4001`
+- websocket: `localhost:4002`
+- ssl: `localhost:4003`
+- ssh: `localhost:4004`
+- internal webserver: `localhost:4005`
+- amp: `localhost:4006`
 
 `init_local.sh`, `account_create.sh`, and `account_set_password.sh` ask for
 passwords interactively. In normal use, they do not accept passwords through
@@ -263,6 +268,11 @@ Default local connection targets for the Compose stack:
 
 - telnet: `localhost:4000`
 - webclient: `http://localhost:4001`
+- websocket: `localhost:4002`
+- ssl: `localhost:4003`
+- ssh: `localhost:4004`
+- internal webserver: `localhost:4005`
+- amp: `localhost:4006`
 
 Useful diagnostics and restart commands:
 

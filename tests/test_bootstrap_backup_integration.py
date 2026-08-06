@@ -11,11 +11,11 @@ import unittest
 from redmond_server import bootstrap
 
 from tests.bootstrap_test_utils import (
-    TEST_PASSWORD_INPUT_ENV,
     PRODUCT_ROOT,
     build_env,
     cleanup_process,
     create_game_dir,
+    create_initialized_game_dir,
     load_state,
     overwrite_room_name,
     run_command,
@@ -198,17 +198,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
         self.assertIn("PostgreSQL backup creation", result.stderr)
 
     def test_backup_and_restore_round_trip(self) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
 
         backup_result = run_command(
             ["./scripts/backup_local.sh"],
@@ -234,17 +225,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
         self.assertEqual(state["ooc_room_key"], "Redmond OOC Hub")
 
     def test_backup_local_rejects_postgres_configuration(self) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         postgres_env = {
             **env,
             "REDMOND_DATABASE_URL": (
@@ -266,17 +248,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
     def test_backup_local_fails_without_recreating_secret_settings(
         self,
     ) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         secret_settings = game_dir / "server" / "conf" / "secret_settings.py"
         secret_settings.unlink()
 
@@ -294,17 +267,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
         self.assertFalse(secret_settings.exists())
 
     def test_restore_local_rejects_postgres_configuration(self) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         backup_result = run_command(
             ["./scripts/backup_local.sh"],
             cwd=PRODUCT_ROOT,
@@ -334,17 +298,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
     def test_restore_local_rejects_postgres_before_stop_side_effects(
         self,
     ) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         backup_result = run_command(
             ["./scripts/backup_local.sh"],
             cwd=PRODUCT_ROOT,
@@ -389,17 +344,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
     def test_reset_local_rejects_postgres_configuration_before_delete(
         self,
     ) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         sqlite_path = game_dir / "server" / "evennia.db3"
         self.assertTrue(sqlite_path.exists())
         postgres_env = {
@@ -422,17 +368,8 @@ class BootstrapBackupIntegrationTest(unittest.TestCase):
         self.assertTrue(sqlite_path.exists())
 
     def test_restore_local_invalid_archive_keeps_live_state(self) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
         sqlite_path = game_dir / "server" / "evennia.db3"
         secret_settings = game_dir / "server" / "conf" / "secret_settings.py"
         live_db = sqlite_path.read_bytes()

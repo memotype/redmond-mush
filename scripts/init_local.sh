@@ -27,7 +27,7 @@ fi
 
 prompt_superuser_values() {
   if run_bootstrap has-superuser >/dev/null 2>&1; then
-    return
+    return 1
   fi
 
   if [[ -n "${EVENNIA_SUPERUSER_PASSWORD:-}" ]]; then
@@ -43,6 +43,7 @@ prompt_superuser_values() {
   if [[ -z "${EVENNIA_SUPERUSER_EMAIL:-}" ]]; then
     read -r -p "Bootstrap superuser email (optional): " EVENNIA_SUPERUSER_EMAIL
   fi
+  return 0
 }
 
 bootstrap_initial_world() {
@@ -64,10 +65,11 @@ if ! run_bootstrap migrate >/dev/null; then
   exit 1
 fi
 
-prompt_superuser_values
-run_bootstrap ensure-superuser \
-  --username "${EVENNIA_SUPERUSER_USERNAME}" \
-  --email "${EVENNIA_SUPERUSER_EMAIL:-}" >/dev/null
+if prompt_superuser_values; then
+  run_bootstrap ensure-superuser \
+    --username "${EVENNIA_SUPERUSER_USERNAME}" \
+    --email "${EVENNIA_SUPERUSER_EMAIL:-}" >/dev/null
+fi
 
 bootstrap_initial_world
 run_bootstrap seed >/dev/null

@@ -11,11 +11,15 @@ import stat
 import sys
 from types import ModuleType
 
-from ._runtime import reserve_local_ports
-
-
 DEFAULT_SETTINGS_MODULE = "server.conf.settings"
 SECRET_PLACEHOLDER = "__REDMOND_SECRET_KEY__"
+DEFAULT_TELNET_PORT = 4000
+DEFAULT_WEBSERVER_PROXY_PORT = 4001
+DEFAULT_WEBSOCKET_CLIENT_PORT = 4002
+DEFAULT_SSL_PORT = 4003
+DEFAULT_SSH_PORT = 4004
+DEFAULT_INTERNAL_WEBSERVER_PORT = 4005
+DEFAULT_AMP_PORT = 4006
 
 
 def game_dir_arg(raw_path: str) -> Path:
@@ -36,15 +40,21 @@ def ensure_secret_settings(game_dir: Path) -> Path:
 
     template_text = template_path.read_text(encoding="ascii")
     secret_key = secrets.token_urlsafe(48)
-    ports = reserve_local_ports(7)
     target_text = template_text.replace(SECRET_PLACEHOLDER, secret_key)
     target_text += "\n"
-    target_text += f"TELNET_PORTS = [{ports[0]}]\n"
-    target_text += f"WEBSERVER_PORTS = [({ports[1]}, {ports[2]})]\n"
-    target_text += f"WEBSOCKET_CLIENT_PORT = {ports[3]}\n"
-    target_text += f"SSL_PORTS = [{ports[4]}]\n"
-    target_text += f"SSH_PORTS = [{ports[5]}]\n"
-    target_text += f"AMP_PORT = {ports[6]}\n"
+    target_text += f"TELNET_PORTS = [{DEFAULT_TELNET_PORT}]\n"
+    target_text += (
+        "WEBSERVER_PORTS = "
+        f"[({DEFAULT_WEBSERVER_PROXY_PORT}, "
+        f"{DEFAULT_INTERNAL_WEBSERVER_PORT})]\n"
+    )
+    target_text += (
+        "WEBSOCKET_CLIENT_PORT = "
+        f"{DEFAULT_WEBSOCKET_CLIENT_PORT}\n"
+    )
+    target_text += f"SSL_PORTS = [{DEFAULT_SSL_PORT}]\n"
+    target_text += f"SSH_PORTS = [{DEFAULT_SSH_PORT}]\n"
+    target_text += f"AMP_PORT = {DEFAULT_AMP_PORT}\n"
     target_path.write_text(target_text, encoding="ascii")
     target_path.chmod(stat.S_IRUSR | stat.S_IWUSR)
     return target_path

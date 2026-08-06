@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import atexit
+from functools import cache
 import json
 import os
 from pathlib import Path
@@ -15,11 +17,20 @@ PRODUCT_ROOT = Path(__file__).resolve().parents[1]
 GAME_SOURCE = PRODUCT_ROOT / "src" / "redmond_server" / "game"
 PYTHONPATH_DIR = str(PRODUCT_ROOT / "src")
 PYTHON_BIN = sys.executable
-PYTHON_BIN_DIR = str(Path(sys.executable).resolve().parent)
+PYTHON_BIN_DIR = str(Path(os.path.abspath(sys.executable)).parent)
 TEST_PASSWORD_INPUT_ENV = "REDMOND_TEST_PASSWORD_INPUT"
 WRAPPER_DISABLE_DEFAULT_CONFIG_ENV = (
     "REDMOND_WRAPPER_DISABLE_DEFAULT_CONFIG"
 )
+_TEMP_ROOTS: list[Path] = []
+
+
+def _cleanup_temp_roots() -> None:
+    for temp_root in reversed(_TEMP_ROOTS):
+        shutil.rmtree(temp_root, ignore_errors=True)
+
+
+atexit.register(_cleanup_temp_roots)
 
 
 def with_active_python_path(
@@ -241,12 +252,40 @@ def overwrite_room_name(game_dir: Path, new_name: str) -> None:
     )
 
 
-def create_game_dir() -> Path:
-    temp_root = Path(tempfile.mkdtemp(prefix="redmond-game-"))
+def _copy_game_dir(source: Path, *, prefix: str) -> Path:
+    temp_root = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMP_ROOTS.append(temp_root)
     game_dir = temp_root / "game"
-    shutil.copytree(GAME_SOURCE, game_dir)
+    shutil.copytree(source, game_dir)
+    return game_dir
+
+
+def create_game_dir() -> Path:
+    game_dir = _copy_game_dir(GAME_SOURCE, prefix="redmond-game-")
     sanitize_game_dir(game_dir)
     return game_dir
+
+
+@cache
+def _initialized_game_template() -> Path:
+    game_dir = create_game_dir()
+    run_command(
+        ["./scripts/init_local.sh"],
+        cwd=PRODUCT_ROOT,
+        env={
+            **build_env(game_dir),
+            TEST_PASSWORD_INPUT_ENV: "1",
+        },
+        input_text="pass123\n",
+    )
+    return game_dir
+
+
+def create_initialized_game_dir() -> Path:
+    return _copy_game_dir(
+        _initialized_game_template(),
+        prefix="redmond-initialized-game-",
+    )
 
 
 def sanitize_game_dir(game_dir: Path) -> None:

@@ -11,10 +11,9 @@ import unittest
 from redmond_server import bootstrap
 
 from tests.bootstrap_test_utils import (
-    TEST_PASSWORD_INPUT_ENV,
     PRODUCT_ROOT,
-    build_env,
     create_game_dir,
+    create_initialized_game_dir,
     load_accounts,
     run_command,
     with_active_python_path,
@@ -198,17 +197,7 @@ class WrapperConfigIntegrationTest(unittest.TestCase):
     def test_account_set_admin_wrapper_preserves_positional_args_with_config(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={
-                **env,
-                TEST_PASSWORD_INPUT_ENV: "1",
-            },
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         config_path = self.write_wrapper_config(
             Path(tempfile.mkdtemp(prefix="redmond-config-"))
             / "redmond.env",

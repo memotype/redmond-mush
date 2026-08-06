@@ -9,6 +9,42 @@ Rules:
 
 ## Unreleased
 
+- Preserve the validated integer contract on chargen attribute edit results
+  across runtime behavior and static typing.
+- Consolidate reset lifecycle integration coverage into one real reset while
+  preserving clean-state reconstruction, stale-marker cleanup, and live
+  PID-file process termination assertions.
+- Reuse isolated initialized-game clones for backup, restore, config, and
+  account-wrapper integration tests that do not exercise bootstrap itself,
+  and keep wrapper subprocesses on the active virtualenv when its interpreter
+  is a symlink.
+- Cut full-suite test setup duplication by cloning one initialized game
+  template into isolated per-test directories while retaining clean-bootstrap
+  coverage for bootstrap behavior.
+- Extend chargen draft sessions with writable primary attributes for Body,
+  Agility, Reaction, Strength, Willpower, Logic, Intuition, Charisma, and
+  Edge.
+- Add `+chargen/show`, `+chargen/show attr`, `+chargen/show background`,
+  `+chargen/show bg`, and `+chargen/edit attr <attribute> <value>`, and
+  upgrade `+chargen/status` to report attribute-based completion cleanly.
+- Fix `./scripts/init_local.sh` reruns so an existing local superuser no
+  longer trips an `EVENNIA_SUPERUSER_USERNAME` unbound-variable failure, and
+  ignore generated editable-install `*.egg-info` metadata in repo-local
+  policy checks.
+- Restore the documented local Evennia port defaults during bootstrap so new
+  local game dirs use telnet `4000`, web proxy `4001`, websocket `4002`,
+  SSL `4003`, SSH `4004`, internal web `4005`, and AMP `4006`, and ignore
+  generated `.static/` and `.media/` runtime directories in repo-local
+  policy checks.
+- Expand the product README local-connection notes so the full Evennia local
+  port map is documented alongside telnet and webclient endpoints.
+- Add `+chargen/start` so players can create their own active chargen
+  session from the default rules profile, and update missing-session chargen
+  messaging to point users toward that entry point.
+- Seed the default `redmond_standard` chargen rules profile during ordinary
+  local world bootstrap so `./scripts/init_local.sh` leaves local players
+  able to run `+chargen/start` without extra staff-only setup.
+
 ## v0.1.7 - 2026-07-31
 
 - Restore the downstream typing baseline by making the chargen, sheet, and

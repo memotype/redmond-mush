@@ -34,14 +34,37 @@ class ChargenSessionCreateResult:
 
 
 @dataclass(frozen=True)
+class ChargenAttributeValueView:
+    """One chargen draft attribute for read presentation."""
+
+    attribute_id: str
+    label: str
+    value: int | None
+
+
+@dataclass(frozen=True)
+class ChargenAttributeEditResult:
+    """Result for one draft attribute edit."""
+
+    session_id: int
+    attribute_id: str
+    attribute_label: str
+    value: int
+
+
+@dataclass(frozen=True)
 class ChargenStatusView:
-    """Read-only active chargen status result."""
+    """Read view for one active chargen session."""
 
     status: str
     profile_display_name: str
     profile_key: str
     profile_version: int
     starting_karma: int
+    completion_state: str
+    missing_attribute_ids: tuple[str, ...]
     backstory_state: str
+    backstory: str
     created_at: datetime
+    attributes: tuple[ChargenAttributeValueView, ...]
     next_step_text: str

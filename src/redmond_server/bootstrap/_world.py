@@ -10,6 +10,12 @@ from ._runtime import runtime_state
 from ._types import BootstrapState
 
 
+DEFAULT_CHARGEN_PROFILE_KEY = "redmond_standard"
+DEFAULT_CHARGEN_PROFILE_VERSION = 1
+DEFAULT_CHARGEN_PROFILE_DISPLAY_NAME = "Redmond Standard"
+DEFAULT_CHARGEN_PROFILE_STARTING_KARMA = 50
+
+
 def _load_game_text() -> Any:
     """Import the Redmond text constants from the game tree."""
     from world import game_text  # type: ignore[import-not-found]
@@ -112,6 +118,10 @@ def ensure_seeded_world(game_dir: Path) -> dict[str, Any]:
     configure_django(game_dir, load_evennia=True)
 
     import evennia  # type: ignore[import-untyped]
+    from chargen.services import (  # type: ignore[import-untyped]
+        EnsureChargenRulesProfileInput,
+        ensure_chargen_rules_profile,
+    )
     from django.conf import settings  # type: ignore[import-untyped]
     from evennia.accounts.models import (  # type: ignore[import-untyped]
         AccountDB,
@@ -159,6 +169,17 @@ def ensure_seeded_world(game_dir: Path) -> dict[str, Any]:
     for account in AccountDB.objects.filter(is_superuser=True):
         if not staff_channel.has_connection(account):
             staff_channel.connect(account)
+
+    ensure_chargen_rules_profile(
+        EnsureChargenRulesProfileInput(
+            profile_key=DEFAULT_CHARGEN_PROFILE_KEY,
+            version=DEFAULT_CHARGEN_PROFILE_VERSION,
+            display_name=DEFAULT_CHARGEN_PROFILE_DISPLAY_NAME,
+            is_available_for_new_sessions=True,
+            is_default_for_new_sessions=True,
+            starting_karma=DEFAULT_CHARGEN_PROFILE_STARTING_KARMA,
+        )
+    )
 
     FILE_HELP_ENTRIES.load()
     legal_matches = [

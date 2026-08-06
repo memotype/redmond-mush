@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+from typing import Mapping
 
 from shared_backstory import backstory_has_content
 
@@ -11,6 +12,8 @@ from shared_backstory import backstory_has_content
 PROFILE_KEY_MAX_LENGTH = 80
 PROFILE_DISPLAY_NAME_MAX_LENGTH = 120
 SESSION_STATUS_MAX_LENGTH = 24
+ATTRIBUTE_MIN_VALUE = 0
+ATTRIBUTE_MAX_VALUE = 99
 PROFILE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 ACTIVE_SESSION_STATES = (
     "draft",
@@ -34,9 +37,47 @@ class ValidationIssue:
     message: str
 
 
+@dataclass(frozen=True)
+class DraftAttributeDefinition:
+    """Stable draft-attribute metadata for chargen commands and views."""
+
+    attribute_id: str
+    label: str
+    aliases: tuple[str, ...]
+
+
 def _build_issue(field: str, code: str, message: str) -> ValidationIssue:
     """Create one validation issue."""
     return ValidationIssue(field=field, code=code, message=message)
+
+
+DRAFT_ATTRIBUTE_DEFINITIONS = (
+    DraftAttributeDefinition("body", "Body", ("body", "bod")),
+    DraftAttributeDefinition("agility", "Agility", ("agility", "agi")),
+    DraftAttributeDefinition("reaction", "Reaction", ("reaction", "rea")),
+    DraftAttributeDefinition("strength", "Strength", ("strength", "str")),
+    DraftAttributeDefinition(
+        "willpower",
+        "Willpower",
+        ("willpower", "wil"),
+    ),
+    DraftAttributeDefinition("logic", "Logic", ("logic", "log")),
+    DraftAttributeDefinition(
+        "intuition",
+        "Intuition",
+        ("intuition", "int"),
+    ),
+    DraftAttributeDefinition("charisma", "Charisma", ("charisma", "cha")),
+    DraftAttributeDefinition("edge", "Edge", ("edge", "edg")),
+)
+DRAFT_ATTRIBUTE_IDS = tuple(
+    definition.attribute_id for definition in DRAFT_ATTRIBUTE_DEFINITIONS
+)
+_DRAFT_ATTRIBUTE_ALIAS_MAP = {
+    alias: definition
+    for definition in DRAFT_ATTRIBUTE_DEFINITIONS
+    for alias in definition.aliases
+}
 
 
 def normalize_profile_key(value: object) -> str | None:
@@ -184,6 +225,110 @@ def validate_default_profile_flags(
             )
         )
     return issues
+
+
+def normalize_draft_attribute_name(value: object) -> str | None:
+    """Normalize one draft attribute selector."""
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized == "":
+        return ""
+    definition = _DRAFT_ATTRIBUTE_ALIAS_MAP.get(normalized)
+    if definition is None:
+        return None
+    return definition.attribute_id
+
+
+def validate_draft_attribute_name(
+    field: str,
+    value: object,
+) -> list[ValidationIssue]:
+    """Validate one draft attribute selector."""
+    if not isinstance(value, str):
+        return [
+            _build_issue(
+                field,
+                "invalid_type",
+                f"{field} must be a string.",
+            )
+        ]
+    normalized = value.strip().lower()
+    if normalized == "":
+        return [
+            _build_issue(
+                field,
+                "required",
+                f"{field} is required.",
+            )
+        ]
+    if normalized not in _DRAFT_ATTRIBUTE_ALIAS_MAP:
+        return [
+            _build_issue(
+                field,
+                "unknown_attribute",
+                f"{field} must name one editable primary attribute.",
+            )
+        ]
+    return []
+
+
+def draft_attribute_definition(attribute_id: str) -> DraftAttributeDefinition:
+    """Return one draft-attribute definition by canonical identifier."""
+    definition = _DRAFT_ATTRIBUTE_ALIAS_MAP[attribute_id]
+    return _DRAFT_ATTRIBUTE_ALIAS_MAP[definition.attribute_id]
+
+
+def validate_draft_attribute_value(
+    field: str,
+    value: object,
+) -> list[ValidationIssue]:
+    """Require an in-range integer draft attribute value."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return [
+            _build_issue(
+                field,
+                "invalid_type",
+                f"{field} must be an integer rating.",
+            )
+        ]
+    if value < ATTRIBUTE_MIN_VALUE:
+        return [
+            _build_issue(
+                field,
+                "too_small",
+                f"{field} must be {ATTRIBUTE_MIN_VALUE} or greater.",
+            )
+        ]
+    if value > ATTRIBUTE_MAX_VALUE:
+        return [
+            _build_issue(
+                field,
+                "too_large",
+                f"{field} must be at most {ATTRIBUTE_MAX_VALUE}.",
+            )
+        ]
+    return []
+
+
+def missing_draft_attributes(
+    values: Mapping[str, int | None],
+) -> tuple[str, ...]:
+    """Return canonical ids for attributes still missing from the draft."""
+    return tuple(
+        definition.attribute_id
+        for definition in DRAFT_ATTRIBUTE_DEFINITIONS
+        if values.get(definition.attribute_id) is None
+    )
+
+
+def draft_attributes_completion_state(
+    values: Mapping[str, int | None],
+) -> str:
+    """Return whether all editable draft attributes are present."""
+    if missing_draft_attributes(values):
+        return "Incomplete"
+    return "Complete"
 
 
 def session_state_is_active(state: str) -> bool:

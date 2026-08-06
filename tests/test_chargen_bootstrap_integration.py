@@ -12,6 +12,7 @@ from tests.bootstrap_test_utils import (
     TEST_PASSWORD_INPUT_ENV,
     build_env,
     create_game_dir,
+    create_initialized_game_dir,
     run_command,
 )
 
@@ -47,14 +48,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
         )
 
     def test_chargen_create_sample_bootstrap_command(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         self._seed_character(game_dir, "SampleChar")
 
         result = json.loads(
@@ -79,7 +73,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(result["character_key"], "SampleChar")
         self.assertEqual(result["starting_karma_snapshot"], 50)
 
-    def test_chargen_create_sample_requires_opt_in(self) -> None:
+    def test_init_local_seeds_default_chargen_profile(self) -> None:
         game_dir = create_game_dir()
         env = build_env(game_dir)
         run_command(
@@ -88,6 +82,44 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
             env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
             input_text="pass123\n",
         )
+
+        result = json.loads(
+            run_command(
+                [
+                    PYTHON_BIN,
+                    "-c",
+                    (
+                        "from pathlib import Path; "
+                        "from redmond_server.bootstrap._env import "
+                        "configure_django; "
+                        "configure_django(Path(r'"
+                        + str(game_dir)
+                        + "'), load_evennia=True); "
+                        "from chargen.models import ChargenRulesProfile; "
+                        "profile = ChargenRulesProfile.objects.get("
+                        "is_default_for_new_sessions=True"
+                        "); "
+                        "import json; "
+                        "print(json.dumps({"
+                        "'profile_key': profile.profile_key, "
+                        "'version': profile.version, "
+                        "'display_name': profile.display_name, "
+                        "'starting_karma': profile.starting_karma"
+                        "}))"
+                    ),
+                ],
+                cwd=PRODUCT_ROOT,
+                env={"PYTHONPATH": PYTHONPATH_DIR},
+            ).stdout
+        )
+
+        self.assertEqual(result["profile_key"], "redmond_standard")
+        self.assertEqual(result["version"], 1)
+        self.assertEqual(result["display_name"], "Redmond Standard")
+        self.assertEqual(result["starting_karma"], 50)
+
+    def test_chargen_create_sample_requires_opt_in(self) -> None:
+        game_dir = create_initialized_game_dir()
 
         result = subprocess.run(
             [
@@ -112,14 +144,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(payload["status"], "refused")
 
     def test_chargen_create_sample_repeat_is_non_mutating(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         self._seed_character(game_dir, "SampleChar")
 
         args = [
@@ -153,14 +178,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(first["session_id"], second["session_id"])
 
     def test_chargen_create_sample_missing_target_is_structured(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         result = subprocess.run(
             [
@@ -189,14 +207,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
     def test_chargen_create_sample_ambiguous_target_is_structured(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         self._seed_character(game_dir, "SampleChar", duplicate=True)
 
         result = subprocess.run(
@@ -224,14 +235,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(payload["code"], "character_name_ambiguous")
 
     def test_chargen_create_sample_explicit_unavailable_profile(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         self._seed_character(game_dir, "SampleChar")
         run_command(
             [
@@ -288,14 +292,7 @@ class ChargenBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(payload["code"], "profile_unavailable")
 
     def test_bootstrap_does_not_create_chargen_implicitly(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         result = json.loads(
             run_command(

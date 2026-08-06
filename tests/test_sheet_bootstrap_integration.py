@@ -8,9 +8,7 @@ from tests.bootstrap_test_utils import (
     PRODUCT_ROOT,
     PYTHON_BIN,
     PYTHONPATH_DIR,
-    TEST_PASSWORD_INPUT_ENV,
-    build_env,
-    create_game_dir,
+    create_initialized_game_dir,
     run_command,
 )
 
@@ -24,14 +22,7 @@ class SheetBootstrapIntegrationTest(unittest.TestCase):
     def test_clean_install_rejects_direct_sheet_create_without_status(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         result = subprocess.run(
             [
@@ -95,14 +86,7 @@ class SheetBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
     def test_clean_install_rejects_blank_approved_backstory(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         result = subprocess.run(
             [
@@ -168,14 +152,7 @@ class SheetBootstrapIntegrationTest(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
     def test_sheet_create_sample_missing_character_is_structured(self) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
 
         result = subprocess.run(
             [
@@ -206,14 +183,7 @@ class SheetBootstrapIntegrationTest(unittest.TestCase):
     def test_sheet_create_sample_ambiguous_character_is_structured(
         self,
     ) -> None:
-        game_dir = create_game_dir()
-        env = build_env(game_dir)
-        run_command(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env={**env, TEST_PASSWORD_INPUT_ENV: "1"},
-            input_text="pass123\n",
-        )
+        game_dir = create_initialized_game_dir()
         run_command(
             [
                 PYTHON_BIN,

@@ -8,6 +8,7 @@ compose.env
 config/redmond.env
 dist/
 build/
+src/*.egg-info/
 .DS_Store
 src/redmond_server/game/server/conf/secret_settings.py
 src/redmond_server/game/server/evennia.db3

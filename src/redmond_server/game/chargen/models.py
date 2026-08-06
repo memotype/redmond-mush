@@ -6,6 +6,8 @@ from django.db import models
 from evennia.objects.models import ObjectDB  # type: ignore[import-untyped]
 
 from .policy import (
+    ATTRIBUTE_MAX_VALUE,
+    ATTRIBUTE_MIN_VALUE,
     ACTIVE_SESSION_STATES,
     ALL_SESSION_STATES,
     PROFILE_DISPLAY_NAME_MAX_LENGTH,
@@ -87,6 +89,15 @@ class ChargenSession(models.Model):
     )
     starting_karma_snapshot = models.PositiveIntegerField()
     backstory = models.TextField(blank=True, default="")
+    body = models.PositiveSmallIntegerField(null=True, blank=True)
+    agility = models.PositiveSmallIntegerField(null=True, blank=True)
+    reaction = models.PositiveSmallIntegerField(null=True, blank=True)
+    strength = models.PositiveSmallIntegerField(null=True, blank=True)
+    willpower = models.PositiveSmallIntegerField(null=True, blank=True)
+    logic = models.PositiveSmallIntegerField(null=True, blank=True)
+    intuition = models.PositiveSmallIntegerField(null=True, blank=True)
+    charisma = models.PositiveSmallIntegerField(null=True, blank=True)
+    edge = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -104,6 +115,96 @@ class ChargenSession(models.Model):
                 fields=("character",),
                 condition=models.Q(status__in=ACTIVE_SESSION_STATES),
                 name="chargen_active_session_unique",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(body__isnull=True)
+                    | models.Q(
+                        body__gte=ATTRIBUTE_MIN_VALUE,
+                        body__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_body_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(agility__isnull=True)
+                    | models.Q(
+                        agility__gte=ATTRIBUTE_MIN_VALUE,
+                        agility__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_agility_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(reaction__isnull=True)
+                    | models.Q(
+                        reaction__gte=ATTRIBUTE_MIN_VALUE,
+                        reaction__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_reaction_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(strength__isnull=True)
+                    | models.Q(
+                        strength__gte=ATTRIBUTE_MIN_VALUE,
+                        strength__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_strength_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(willpower__isnull=True)
+                    | models.Q(
+                        willpower__gte=ATTRIBUTE_MIN_VALUE,
+                        willpower__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_willpower_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(logic__isnull=True)
+                    | models.Q(
+                        logic__gte=ATTRIBUTE_MIN_VALUE,
+                        logic__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_logic_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(intuition__isnull=True)
+                    | models.Q(
+                        intuition__gte=ATTRIBUTE_MIN_VALUE,
+                        intuition__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_intuition_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(charisma__isnull=True)
+                    | models.Q(
+                        charisma__gte=ATTRIBUTE_MIN_VALUE,
+                        charisma__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_charisma_draft_valid",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(edge__isnull=True)
+                    | models.Q(
+                        edge__gte=ATTRIBUTE_MIN_VALUE,
+                        edge__lte=ATTRIBUTE_MAX_VALUE,
+                    )
+                ),
+                name="chargen_edge_draft_valid",
             ),
         ]
         indexes = [

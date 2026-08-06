@@ -12,6 +12,7 @@ from tests.bootstrap_test_utils import (
     TEST_PASSWORD_INPUT_ENV,
     WRAPPER_DISABLE_DEFAULT_CONFIG_ENV,
     create_game_dir,
+    create_initialized_game_dir,
     PYTHON_BIN,
     PYTHONPATH_DIR,
     with_active_python_path,
@@ -20,7 +21,7 @@ from tests.bootstrap_test_utils import (
 
 class ShellWrappersFastTest(unittest.TestCase):
     def test_mutating_account_script_reloads_running_server(self) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         fake_bin = Path(tempfile.mkdtemp(prefix="redmond-fake-bin-"))
         log_path = fake_bin / "evennia.log"
         evennia_path = fake_bin / "evennia"
@@ -44,15 +45,6 @@ class ShellWrappersFastTest(unittest.TestCase):
         env[WRAPPER_DISABLE_DEFAULT_CONFIG_ENV] = "1"
         env[TEST_PASSWORD_INPUT_ENV] = "1"
 
-        subprocess.run(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env=env,
-            check=True,
-            text=True,
-            input="pass123\n",
-            capture_output=True,
-        )
         subprocess.run(
             [
                 "bash",

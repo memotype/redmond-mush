@@ -16,13 +16,21 @@ from .models import (
 from .policy import (
     ACTIVE_SESSION_STATES,
     ValidationIssue,
+    draft_attribute_definition,
+    normalize_draft_attribute_name,
     normalize_profile_key,
+    validate_draft_attribute_name,
+    validate_draft_attribute_value,
     validate_default_profile_flags,
     validate_display_name,
     validate_positive_int,
     validate_profile_key,
 )
-from .results import ChargenRulesProfileResult, ChargenSessionCreateResult
+from .results import (
+    ChargenAttributeEditResult,
+    ChargenRulesProfileResult,
+    ChargenSessionCreateResult,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +52,15 @@ class CreateChargenSessionInput:
     character: object
     profile_key: str | None = None
     version: int | None = None
+
+
+@dataclass(frozen=True)
+class EditChargenAttributeInput:
+    """Stable input for one draft attribute edit."""
+
+    character: object
+    attribute_name: object
+    value: object
 
 
 class ChargenError(Exception):
@@ -70,6 +87,10 @@ class ActiveChargenSessionExistsError(ChargenError):
     """Raised when a character already has one active chargen session."""
 
 
+class ActiveChargenSessionNotFoundError(ChargenError):
+    """Raised when no active chargen session exists for editing."""
+
+
 class ChargenSessionConflictError(ChargenError):
     """Raised for integrity conflicts during session creation."""
 
@@ -84,6 +105,10 @@ class ChargenValidationError(ChargenError):
     def __init__(self, issues: Iterable[ValidationIssue]):
         self.issues = tuple(issues)
         super().__init__("Chargen validation failed.")
+
+
+class UnknownDraftAttributeError(ChargenError):
+    """Raised when one editable draft attribute name is unknown."""
 
 
 def _require_character(character: object):
@@ -125,6 +150,26 @@ def _validate_profile_input(
         )
     )
     return normalized_profile_key, issues
+
+
+def _get_active_chargen_session(character) -> ChargenSession:
+    """Return the one active chargen session for a character."""
+    sessions = list(
+        ChargenSession.objects.filter(
+            character=character,
+            status__in=ACTIVE_SESSION_STATES,
+        )
+        .order_by("-created_at", "-id")[:2]
+    )
+    if not sessions:
+        raise ActiveChargenSessionNotFoundError(
+            "Character does not have an active chargen session."
+        )
+    if len(sessions) > 1:
+        raise ChargenSessionConflictError(
+            "Stored chargen session state is inconsistent."
+        )
+    return sessions[0]
 
 
 def ensure_chargen_rules_profile(
@@ -322,4 +367,52 @@ def create_chargen_session(
         profile_version=profile.version,
         profile_display_name=profile.display_name,
         starting_karma_snapshot=session.starting_karma_snapshot,
+    )
+
+
+def edit_chargen_attribute(
+    input: EditChargenAttributeInput,
+) -> ChargenAttributeEditResult:
+    """Update one editable draft attribute on the active chargen session."""
+    character = _require_character(input.character)
+
+    issues = validate_draft_attribute_name(
+        "attribute_name",
+        input.attribute_name,
+    )
+    if issues:
+        first_issue = issues[0]
+        if first_issue.code == "unknown_attribute":
+            raise UnknownDraftAttributeError(first_issue.message)
+        raise ChargenValidationError(issues)
+
+    normalized_attribute_name = normalize_draft_attribute_name(
+        input.attribute_name
+    )
+    assert normalized_attribute_name is not None
+
+    value_issues = validate_draft_attribute_value("value", input.value)
+    if value_issues:
+        raise ChargenValidationError(value_issues)
+    assert isinstance(input.value, int)
+    assert not isinstance(input.value, bool)
+    value = input.value
+
+    definition = draft_attribute_definition(normalized_attribute_name)
+    session = _get_active_chargen_session(character)
+    setattr(session, definition.attribute_id, value)
+    try:
+        session.save(
+            update_fields=[definition.attribute_id, "updated_at"]
+        )
+    except IntegrityError as exc:
+        raise ChargenSessionConflictError(
+            "Chargen attribute edit conflicted with stored data."
+        ) from exc
+
+    return ChargenAttributeEditResult(
+        session_id=session.id,
+        attribute_id=definition.attribute_id,
+        attribute_label=definition.label,
+        value=value,
     )

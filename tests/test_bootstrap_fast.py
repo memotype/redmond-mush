@@ -25,9 +25,11 @@ from redmond_server.game.server.conf import _database
 from tests.bootstrap_test_utils import (
     TEST_PASSWORD_INPUT_ENV as HELPER_TEST_PASSWORD_INPUT_ENV,
     PRODUCT_ROOT,
+    PYTHON_BIN_DIR,
     WRAPPER_DISABLE_DEFAULT_CONFIG_ENV,
     cleanup_process,
     create_game_dir,
+    create_initialized_game_dir,
     load_doctor,
     load_backup_status,
     load_runtime_state,
@@ -42,6 +44,14 @@ class BootstrapFastTest(unittest.TestCase):
         self.assertEqual(
             stat.S_IMODE(path.stat().st_mode),
             stat.S_IRUSR | stat.S_IWUSR,
+        )
+
+    def test_active_python_path_preserves_virtualenv_directory(self) -> None:
+        env = with_active_python_path({"PATH": "/usr/bin"})
+
+        self.assertEqual(
+            env["PATH"].split(os.pathsep)[0],
+            PYTHON_BIN_DIR,
         )
 
     def test_password_reader_uses_stdin_in_explicit_test_mode(self) -> None:
@@ -106,7 +116,7 @@ class BootstrapFastTest(unittest.TestCase):
                 )
 
     def test_cli_rejects_non_tty_stdin_without_test_mode(self) -> None:
-        game_dir = create_game_dir()
+        game_dir = create_initialized_game_dir()
         env = with_active_python_path()
         env["PYTHONPATH"] = PYTHONPATH_DIR
         env["REDMOND_GAME_DIR"] = str(game_dir)
@@ -114,16 +124,6 @@ class BootstrapFastTest(unittest.TestCase):
         env["EVENNIA_SUPERUSER_EMAIL"] = "admin@example.com"
         env[WRAPPER_DISABLE_DEFAULT_CONFIG_ENV] = "1"
         env[HELPER_TEST_PASSWORD_INPUT_ENV] = "1"
-
-        subprocess.run(
-            ["./scripts/init_local.sh"],
-            cwd=PRODUCT_ROOT,
-            env=env,
-            check=True,
-            text=True,
-            input="pass123\n",
-            capture_output=True,
-        )
 
         env.pop(HELPER_TEST_PASSWORD_INPUT_ENV, None)
         result = subprocess.run(
@@ -320,9 +320,12 @@ class BootstrapFastTest(unittest.TestCase):
 
         self.assertTrue(secret_settings.exists())
         content = secret_settings.read_text(encoding="ascii")
-        self.assertIn("TELNET_PORTS = [", content)
-        self.assertIn("WEBSERVER_PORTS = [(", content)
-        self.assertIn("AMP_PORT = ", content)
+        self.assertIn("TELNET_PORTS = [4000]", content)
+        self.assertIn("WEBSERVER_PORTS = [(4001, 4005)]", content)
+        self.assertIn("WEBSOCKET_CLIENT_PORT = 4002", content)
+        self.assertIn("SSL_PORTS = [4003]", content)
+        self.assertIn("SSH_PORTS = [4004]", content)
+        self.assertIn("AMP_PORT = 4006", content)
         self.assert_owner_only_mode(secret_settings)
 
     def test_runtime_state_reports_stale_pidfile(self) -> None:
