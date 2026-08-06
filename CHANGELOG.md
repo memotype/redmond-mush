@@ -9,6 +9,9 @@ Rules:
 
 ## Unreleased
 
+- Isolate in-process Evennia and Django tests in one migrated temporary game
+  database with the required baseline objects, keeping direct and full-suite
+  runs independent from developer-local SQLite state.
 - Preserve the validated integer contract on chargen attribute edit results
   across runtime behavior and static typing.
 - Consolidate reset lifecycle integration coverage into one real reset while

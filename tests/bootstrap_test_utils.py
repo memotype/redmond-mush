@@ -267,6 +267,37 @@ def create_game_dir() -> Path:
 
 
 @cache
+def configure_isolated_django() -> Path:
+    """Configure one migrated temporary game database for this process."""
+    game_dir = create_game_dir()
+    original_cwd = Path.cwd()
+    try:
+        from redmond_server.bootstrap._accounts import ensure_superuser
+        from redmond_server.bootstrap._backup import run_migrations
+        from redmond_server.bootstrap._env import configure_django
+
+        configure_django(game_dir, load_evennia=False)
+        run_migrations(game_dir)
+        ensure_superuser(
+            game_dir,
+            username="TestAdmin",
+            password="testpassword",
+            email="test@example.com",
+        )
+        configure_django(game_dir, load_evennia=True)
+
+        from evennia.server import (  # type: ignore[import-untyped]
+            initial_setup,
+        )
+
+        initial_setup.create_objects()
+        initial_setup.at_initial_setup()
+    finally:
+        os.chdir(original_cwd)
+    return game_dir
+
+
+@cache
 def _initialized_game_template() -> Path:
     game_dir = create_game_dir()
     run_command(

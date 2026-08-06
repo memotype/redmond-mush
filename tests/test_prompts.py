@@ -1,24 +1,14 @@
 from __future__ import annotations
 # ruff: noqa: E402
 
-from pathlib import Path
-import os
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from redmond_server.bootstrap._env import configure_django
+from tests.bootstrap_test_utils import configure_isolated_django
 
 
-GAME_DIR = (
-    Path(__file__).resolve().parents[1]
-    / "src"
-    / "redmond_server"
-    / "game"
-)
-ORIGINAL_CWD = Path.cwd()
-configure_django(GAME_DIR, load_evennia=True)
-os.chdir(ORIGINAL_CWD)
+configure_isolated_django()
 
 from evennia.commands.default.unloggedin import CmdUnconnectedLook
 from evennia.utils.test_resources import EvenniaCommandTest

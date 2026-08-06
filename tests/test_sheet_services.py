@@ -2,22 +2,12 @@ from __future__ import annotations
 # ruff: noqa: E402
 
 from decimal import Decimal
-from pathlib import Path
-import os
 from unittest.mock import patch
 
-from redmond_server.bootstrap._env import configure_django
+from tests.bootstrap_test_utils import configure_isolated_django
 
 
-GAME_DIR = (
-    Path(__file__).resolve().parents[1]
-    / "src"
-    / "redmond_server"
-    / "game"
-)
-ORIGINAL_CWD = Path.cwd()
-configure_django(GAME_DIR, load_evennia=True)
-os.chdir(ORIGINAL_CWD)
+configure_isolated_django()
 
 from django.db import (  # type: ignore[import-untyped]
     IntegrityError,
